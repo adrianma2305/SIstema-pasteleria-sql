@@ -1,0 +1,52 @@
+.agregarprod {
+  background: var(--color1);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  text-transform: uppercase;
+  font-size: .85rem;
+  box-shadow: 0 4px 6px rgba(0,0,0,.1);
+}
+
+.agregarprod:hover {
+  background: #4a4957;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(52,51,62,.4);
+}
+
+.producto-card {
+  border-radius: 12px;
+  border: 2px solid #ffd7ee;
+  background: white;
+  cursor: pointer;
+  transition: .2s;
+}
+
+.producto-card:hover {
+  box-shadow: 0 0 0 3px var(--color1);
+  border-color: var(--color1);
+  background: #ffe6f5;
+}
+
+#tabla-factura td input[type="number"] {
+  width: 50px;
+}
+
+#modalNotificacion .modal-content {
+  max-width: 340px;
+  margin: 0 auto;
+  box-shadow: 0 4px 32px #0002;
+  border-radius: 16px;
+}
+
+#notif-icon { font-size: 2.8rem; }
+
+#contenedor-grafico { padding-bottom: 0; }
+#grafico-ventas {
+  /*width: 100% !important; estas lineas rompen los graficos*/
+ /* height: 100% !important;*/
+  max-width: none;  
+  max-height: none; 
+  display: block;
+}
