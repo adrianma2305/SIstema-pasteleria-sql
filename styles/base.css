@@ -1,0 +1,46 @@
+:root {
+  --color1: #34333e;
+  --color2: #5c5b6f;
+  --color3: #27262f;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  font-family: "Fira Sans Condensed", sans-serif;
+  background-color: #f4f7f6;
+  display: grid;
+  grid-template-columns: 250px 1fr;
+  grid-template-rows: 58px 1fr;
+}
+
+.btn {
+  transition: all .3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  border-radius: 6px;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  filter: brightness(1.05);
+}
+
+.btn:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-sm { border-radius: 4px; }
+
+.btn-danger:hover {
+  box-shadow: 0 4px 12px rgba(220,53,69,.4);
+}
+
+.btn-info { color: white !important; }
+
+.btn-info:hover {
+  box-shadow: 0 4px 12px rgba(13,202,240,.4);
+}
+
