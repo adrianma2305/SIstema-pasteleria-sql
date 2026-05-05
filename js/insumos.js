@@ -1,17 +1,14 @@
-const API_URL_INS = "http://localhost:3000/api";
+const API_URL_INS = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
 let insumosOriginal = [];
 let proveedoresMap = {}; 
 
-// --- CARGAR INSUMOS ---
 async function cargarInsumos() {
   const tabla = document.querySelector("#insumos-table tbody");
   tabla.innerHTML = "<tr><td colspan='6'>Cargando...</td></tr>";
   
   try {
     const res = await fetch(`${API_URL_INS}/insumos`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
     });
     if (!res.ok) throw new Error("Error de red");
     const insumos = await res.json();
@@ -23,7 +20,6 @@ async function cargarInsumos() {
   }
 }
 
-// --- RENDERIZAR TABLA ---
 function renderizarInsumos(insumos) {
   const tabla = document.querySelector("#insumos-table tbody");
   tabla.innerHTML = "";
@@ -44,13 +40,10 @@ function renderizarInsumos(insumos) {
   });
 }
 
-// --- SELECT DE PROVEEDORES ---
 async function cargarProveedoresSelect(selectId, seleccionado = null) {
   try {
     const res = await fetch(`${API_URL_INS}/proveedores`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
     });
     if (!res.ok) throw new Error("Error cargando proveedores");
     const proveedores = await res.json();
@@ -66,12 +59,9 @@ async function cargarProveedoresSelect(selectId, seleccionado = null) {
       if (seleccionado && parseInt(seleccionado) === p.id) option.selected = true;
       select.appendChild(option);
     });
-  } catch (error) {
-    console.error("Error en select de proveedores", error);
-  }
+  } catch (error) { console.error("Error en select de proveedores", error); }
 }
 
-// --- AGREGAR INSUMO ---
 async function agregarInsumo(event) {
   event.preventDefault();
   const nombre = document.getElementById("nombre-insumo").value.trim();
@@ -84,10 +74,7 @@ async function agregarInsumo(event) {
   try {
     const res = await fetch(`${API_URL_INS}/insumos`, {
       method: 'POST',
-      headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-      },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ nombre, unidad, precio, proveedor_id: proveedor_id ? parseInt(proveedor_id) : null })
     });
 
@@ -97,38 +84,26 @@ async function agregarInsumo(event) {
     bootstrap.Modal.getInstance(document.getElementById("modalAgregarInsumo")).hide();
     document.getElementById("form-agregar-insumo").reset();
     cargarInsumos();
-  } catch (error) {
-    mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo agregar el insumo.", tipo: "error" });
-  }
+  } catch (error) { mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo agregar el insumo.", tipo: "error" }); }
 }
 
-// --- ELIMINAR INSUMO ---
 async function eliminarInsumo(id) {
   if (!confirm("¿Estás seguro que quieres eliminar este insumo?")) return;
-  
   try {
     const res = await fetch(`${API_URL_INS}/insumos/${id}`, { 
         method: 'DELETE',
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
     });
     if (!res.ok) throw new Error("Error al eliminar");
-
     mostrarNotificacion({ titulo: "Eliminado", mensaje: "Insumo eliminado correctamente.", tipo: "success" });
     cargarInsumos();
-  } catch (error) {
-    mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo eliminar el insumo.", tipo: "error" });
-  }
+  } catch (error) { mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo eliminar el insumo.", tipo: "error" }); }
 }
 
-// --- ABRIR MODAL EDICIÓN ---
 async function abrirEditarInsumo(id) {
   try {
     const res = await fetch(`${API_URL_INS}/insumos/${id}`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
     });
     if (!res.ok) throw new Error("Error al cargar insumo");
     const data = await res.json();
@@ -142,12 +117,9 @@ async function abrirEditarInsumo(id) {
     
     const modal = new bootstrap.Modal(document.getElementById("modalEditarInsumo"));
     modal.show();
-  } catch (error) {
-    mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo cargar el insumo.", tipo: "error" });
-  }
+  } catch (error) { mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo cargar el insumo.", tipo: "error" }); }
 }
 
-// --- ACTUALIZAR INSUMO ---
 async function actualizarInsumo(event) {
   event.preventDefault();
   const id = document.getElementById("edit-id-insumo").value;
@@ -159,10 +131,7 @@ async function actualizarInsumo(event) {
   try {
     const res = await fetch(`${API_URL_INS}/insumos/${id}`, {
       method: 'PUT',
-      headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-      },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ nombre, unidad, precio, proveedor_id: proveedor_id ? parseInt(proveedor_id) : null })
     });
 
@@ -171,12 +140,9 @@ async function actualizarInsumo(event) {
     mostrarNotificacion({ titulo: "Actualizado", mensaje: "Insumo actualizado correctamente.", tipo: "success" });
     bootstrap.Modal.getInstance(document.getElementById("modalEditarInsumo")).hide();
     cargarInsumos();
-  } catch (error) {
-    mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo actualizar el insumo.", tipo: "error" });
-  }
+  } catch (error) { mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo actualizar el insumo.", tipo: "error" }); }
 }
 
-// --- BUSCADOR Y EVENTOS ---
 function filtrarInsumos() {
   const valor = document.getElementById("busqueda-insumos").value.trim().toLowerCase();
   const filtrados = insumosOriginal.filter((i) => i.nombre.toLowerCase().includes(valor));

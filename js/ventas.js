@@ -1,11 +1,13 @@
-const API_URL_VENTAS = "http://localhost:3000/api";
+const API_URL_VENTAS = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
 let productosParaVenta = [];
 let factura = [];
 
 // 1. CARGAR PRODUCTOS EN LA CUADRÍCULA 
 async function cargarProductosParaVenta() {
   try {
-    const res = await fetch(`${API_URL_VENTAS}/productos`);
+    const res = await fetch(`${API_URL_VENTAS}/productos`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if (!res.ok) throw new Error("Error al cargar productos");
     const productos = await res.json();
     
@@ -35,13 +37,8 @@ function renderizarGridProductosVenta(listado) {
 
 // 2. LÓGICA DE LA FACTURA 
 window.agregarAFactura = function (id) {
-  
   const prod = productosParaVenta.find((p) => p.id == id);
-  
-  if (!prod) {
-    console.error("Error: No se encontró el producto con ID", id);
-    return;
-  }
+  if (!prod) return;
 
   const idx = factura.findIndex((item) => item.id == id);
   if (idx >= 0) {
@@ -49,7 +46,6 @@ window.agregarAFactura = function (id) {
   } else {
     factura.push({ id: prod.id, nombre: prod.nombre, precio: parseFloat(prod.precio), cantidad: 1 });
   }
-  
   renderFactTabla();
 };
 
@@ -90,7 +86,6 @@ window.quitarDeFactura = function (id) {
   renderFactTabla();
 };
 
-// Búsqueda rápida de productos
 document.getElementById("busqueda-venta-productos").addEventListener("input", function () {
   const val = this.value.trim().toLowerCase();
   const filtrados = productosParaVenta.filter((p) => p.nombre.toLowerCase().includes(val));
@@ -110,7 +105,9 @@ async function obtenerOCrearCliente() {
   if (!nombre) return null;
 
   try {
-    const resBusq = await fetch(`${API_URL_VENTAS}/clientes?nombre=${encodeURIComponent(nombre)}`);
+    const resBusq = await fetch(`${API_URL_VENTAS}/clientes?nombre=${encodeURIComponent(nombre)}`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     const encontrados = await resBusq.json();
 
     if (encontrados && encontrados.length > 0) {
@@ -119,7 +116,7 @@ async function obtenerOCrearCliente() {
 
     const resCrear = await fetch(`${API_URL_VENTAS}/clientes`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ nombre, telefono })
     });
     
@@ -134,17 +131,13 @@ async function obtenerOCrearCliente() {
 
 document.getElementById("btn-guardar-venta").onclick = async function () {
   if (factura.length === 0) return;
-  
   document.getElementById("btn-guardar-venta").disabled = true;
 
   const clienteId = await obtenerOCrearCliente();
   const empleadoIdStr = localStorage.getItem("usuario_id");
   const empleadoId = empleadoIdStr ? parseInt(empleadoIdStr) : null;
-
-  // Calculamos el total de la factura
   const totalFactura = factura.reduce((acc, item) => acc + (item.cantidad * item.precio), 0);
 
-  // Preparamos el array de detalles para enviarlo de un solo golpe
   const detallesVenta = factura.map(item => ({
       producto_id: item.id,
       cantidad: item.cantidad,
@@ -153,10 +146,9 @@ document.getElementById("btn-guardar-venta").onclick = async function () {
   }));
 
   try {
-    // Mandamos el paquete completo al nuevo backend
     const res = await fetch(`${API_URL_VENTAS}/ventas`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({
           cliente_id: clienteId,
           empleado_id: empleadoId,
@@ -187,7 +179,9 @@ async function cargarVentas() {
   tabla.innerHTML = "<tr><td colspan='8'>Cargando...</td></tr>";
 
   try {
-    const res = await fetch(`${API_URL_VENTAS}/ventas`);
+    const res = await fetch(`${API_URL_VENTAS}/ventas`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if (!res.ok) throw new Error("Error de red");
     const ventas = await res.json();
 
@@ -219,7 +213,6 @@ async function iniciarPOSVenta() {
   renderFactTabla();
 }
 
-// --- NOTIFICACIONES ---
 function mostrarNotificacion({ titulo = "¡Aviso!", mensaje = "", tipo = "success", tiempo = 1000 }) {
   const modalEl = document.getElementById("modalNotificacion");
   const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);

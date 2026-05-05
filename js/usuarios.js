@@ -1,5 +1,5 @@
 let usuarioActual = null;
-const API_URL_USUARIOS = "http://localhost:3000/api";
+const API_URL_USUARIOS = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
 
 async function inicializarSistemaConLogin() {
   const mainContent = document.querySelector(".main-content");
@@ -10,13 +10,10 @@ async function inicializarSistemaConLogin() {
 
   const idGuardado = localStorage.getItem("usuario_id");
 
-  // Verificar sesión automática
   if (idGuardado) {
     try {
       const res = await fetch(`${API_URL_USUARIOS}/empleados/${idGuardado}`, {
-        headers: {
-          'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
       });
       if (res.ok) {
         const data = await res.json();
@@ -33,7 +30,6 @@ async function inicializarSistemaConLogin() {
     } catch (error) { console.error("Error de sesión", error); }
   }
 
-  // Cargar modal de login si no hay sesión
   const modalElement = document.getElementById("modalLoginInicio");
   let modalLogin = bootstrap.Modal.getInstance(modalElement) || new bootstrap.Modal(modalElement, { backdrop: 'static', keyboard: false });
   
@@ -42,9 +38,7 @@ async function inicializarSistemaConLogin() {
 
   try {
     const resEmp = await fetch(`${API_URL_USUARIOS}/empleados`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
     });
     if (resEmp.ok) {
       const empleados = await resEmp.json();
@@ -69,9 +63,7 @@ async function inicializarSistemaConLogin() {
 
     try {
       const res = await fetch(`${API_URL_USUARIOS}/empleados/${idUsuario}`, {
-          headers: {
-              'ngrok-skip-browser-warning': 'true'
-          }
+          headers: { 'ngrok-skip-browser-warning': 'true' }
       });
       if (!res.ok) return mostrarErrorLogin("Error al verificar usuario.");
       
@@ -103,7 +95,6 @@ async function inicializarSistemaConLogin() {
 function forzarCierreBackdrop() {
   const backdrops = document.querySelectorAll('.modal-backdrop');
   backdrops.forEach(backdrop => backdrop.remove());
-
   document.body.classList.remove('modal-open');
   document.body.style.overflow = '';
   document.body.style.paddingRight = '';
@@ -133,7 +124,6 @@ async function hashPassword(password) {
     .join("");
 }
 
-// --- LA FUNCIÓN DEL BOTÓN ---
 window.abrirModalUsuarios = function() {
   if(confirm("¿Deseas cerrar la sesión actual y cambiar de usuario?")) {
     localStorage.removeItem("usuario_id");
@@ -179,7 +169,6 @@ document.getElementById("form-agregar-usuario")?.addEventListener("submit", asyn
   }
 });
 
-// Permisos
 function esAdmin() {
   if (!usuarioActual) return false;
   const cargo = usuarioActual.cargo.toLowerCase().trim();
@@ -189,33 +178,26 @@ function esAdmin() {
 function aplicarPermisosInterfaz() {
   const btnReporte = document.getElementById("btn-accion-reporte");
   const btnConfigUsuarios = document.querySelector("#admin-acciones"); 
-  
   const navInicio = document.getElementById("btn-ir-inicio");
   const navProductos = document.getElementById("btn-ir-productos");
   const navProveedores = document.getElementById("btn-ir-proveedores");
-  
   const btnAgregarProd = document.querySelector("#seccion-productos .agregarprod");
   const btnAgregarProv = document.querySelector("#seccion-proveedores .agregarprod");
 
   if (esAdmin()) {
     if(btnReporte) btnReporte.style.display = "block";
     if(btnConfigUsuarios) btnConfigUsuarios.style.display = "block";
-    
     if(navInicio) navInicio.parentElement.style.display = "block";
     if(navProductos) navProductos.parentElement.style.display = "block";
     if(navProveedores) navProveedores.parentElement.style.display = "block";
-    
     if(btnAgregarProd) btnAgregarProd.style.display = "inline-block";
     if(btnAgregarProv) btnAgregarProv.style.display = "inline-block";
-
   } else {
     if(btnReporte) btnReporte.style.display = "none";
     if(btnConfigUsuarios) btnConfigUsuarios.style.display = "none";
-
     if(navInicio) navInicio.parentElement.style.display = "none";
     if(navProductos) navProductos.parentElement.style.display = "none";
     if(navProveedores) navProveedores.parentElement.style.display = "none";
-
     if(btnAgregarProd) btnAgregarProd.style.display = "none";
     if(btnAgregarProv) btnAgregarProv.style.display = "none";
 

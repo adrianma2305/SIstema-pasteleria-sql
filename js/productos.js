@@ -1,5 +1,4 @@
-// Usamos localhost para desarrollo local rápido
-const API_URL = "http://localhost:3000/api";
+const API_URL = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
 let productosOriginal = [];
 
 // --- CARGAR PRODUCTOS ---
@@ -8,17 +7,19 @@ async function cargarProductos() {
   tabla.innerHTML = "<tr><td colspan='5'>Cargando...</td></tr>";
   
   try {
-    const respuesta = await fetch(`${API_URL}/productos`);
+    const respuesta = await fetch(`${API_URL}/productos`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if (!respuesta.ok) throw new Error("Error al cargar productos");
     const productos = await respuesta.json();
     
     productosOriginal = productos;
     renderizarProductos(productos);
     cargarSelectsInsumosProducto();
-    cargarSelectsCategorias(); // Llamamos a las categorías
+    cargarSelectsCategorias();
   } catch (error) {
     console.error(error);
-    tabla.innerHTML = "<tr><td colspan='5'>Error al cargar desde SQL Server. Asegúrate de que el servidor (node server.js) esté corriendo.</td></tr>";
+    tabla.innerHTML = "<tr><td colspan='5'>Error al cargar desde SQL Server. Asegúrate de que el servidor esté corriendo.</td></tr>";
   }
 }
 
@@ -31,8 +32,6 @@ function renderizarProductos(productos) {
 
   productos.forEach((p) => {
     const nombreInsumo = p.insumo ? `<span class="badge bg-secondary">${p.insumo.nombre}</span>` : "-";
-    
-    // Insignia visual para la categoría
     const nombreCategoria = p.categoria ? `<span class="badge bg-primary">${p.categoria.nombre}</span>` : `<span class="badge bg-light text-dark">Sin categoría</span>`;
 
     const botonesAccion = isAdmin ? `
@@ -59,7 +58,9 @@ function renderizarProductos(productos) {
 // --- CARGAR SELECTS DE CATEGORIAS ---
 async function cargarSelectsCategorias() {
   try {
-    const respuesta = await fetch(`${API_URL}/categorias`);
+    const respuesta = await fetch(`${API_URL}/categorias`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if (!respuesta.ok) throw new Error("Error al cargar categorías");
     const categorias = await respuesta.json();
 
@@ -106,7 +107,7 @@ async function agregarProducto(event) {
   try {
     const respuesta = await fetch(`${API_URL}/productos`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ nombre, precio, insumo_id, categoria_id }) 
     });
 
@@ -131,7 +132,10 @@ async function eliminarProducto(id) {
   if (!confirm("¿Estás seguro que quieres eliminar este producto?")) return;
   
   try {
-    const respuesta = await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' });
+    const respuesta = await fetch(`${API_URL}/productos/${id}`, { 
+        method: 'DELETE',
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if (!respuesta.ok) throw new Error("No se pudo eliminar");
 
     mostrarNotificacion({titulo: "Eliminado", mensaje: "Producto eliminado correctamente.", tipo: "success"});
@@ -144,7 +148,9 @@ async function eliminarProducto(id) {
 // --- CARGAR SELECTS DE INSUMOS ---
 async function cargarSelectsInsumosProducto() {
   try {
-    const respuesta = await fetch(`${API_URL}/insumos`);
+    const respuesta = await fetch(`${API_URL}/insumos`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if (!respuesta.ok) throw new Error("Error al cargar insumos");
     const insumos = await respuesta.json();
 
@@ -166,7 +172,9 @@ async function cargarSelectsInsumosProducto() {
 // --- ABRIR MODAL DE EDICIÓN ---
 async function abrirEditarProducto(id) {
   try {
-    const respuesta = await fetch(`${API_URL}/productos/${id}`);
+    const respuesta = await fetch(`${API_URL}/productos/${id}`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if (!respuesta.ok) throw new Error("Error al obtener producto");
     const data = await respuesta.json();
 
@@ -199,7 +207,7 @@ async function actualizarProducto(event) {
   try {
     const respuesta = await fetch(`${API_URL}/productos/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ nombre, precio, insumo_id, categoria_id }) 
     });
 

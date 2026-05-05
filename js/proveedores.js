@@ -1,16 +1,13 @@
-const API_URL_PROV = "http://localhost:3000/api";
+const API_URL_PROV = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
 let proveedoresOriginal = [];
 
-// --- CARGAR PROVEEDORES ---
 async function cargarProveedores() {
   const tabla = document.querySelector("#proveedores-table tbody");
   tabla.innerHTML = "<tr><td colspan='5'>Cargando...</td></tr>";
   
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
     });
     if (!res.ok) throw new Error("Error de red");
     const proveedores = await res.json();
@@ -22,11 +19,9 @@ async function cargarProveedores() {
   }
 }
 
-// --- RENDERIZAR TABLA ---
 function renderizarProveedores(proveedores) {
   const tabla = document.querySelector("#proveedores-table tbody");
   tabla.innerHTML = "";
-
   const fecha = new Date();
   const hoyStr = fecha.toISOString().split('T')[0];
 
@@ -34,22 +29,18 @@ function renderizarProveedores(proveedores) {
     let claseFila = "";
     let titulo = "";
     let textoFechaClass = "";
-    
-    // Formatear la fecha que viene de SQL Server
     let fechaFormat = "";
     let fechaMostrar = "";
+
     if (p.entrega) {
         fechaFormat = p.entrega.split('T')[0];
         fechaMostrar = new Date(fechaFormat + 'T12:00:00').toLocaleDateString();
-        
         if (fechaFormat <= hoyStr) {
-            claseFila = "table-warning";
-            textoFechaClass = "fw-bold text-danger";
+            claseFila = "table-warning"; textoFechaClass = "fw-bold text-danger";
             titulo = 'title="⚠ La fecha de entrega ya pasó o es hoy"';
         }
     }
 
-    // Botones siempre visibles
     const botonesAccion = `
       <button class="btn btn-sm btn-danger" onclick="eliminarProveedor(${p.id})" title="Eliminar"><i class="bi bi-trash"></i></button>
       <button class="btn btn-sm btn-info" onclick="abrirEditarProveedor(${p.id})" title="Editar"><i class="bi bi-pencil"></i></button>
@@ -67,7 +58,6 @@ function renderizarProveedores(proveedores) {
   });
 }
 
-// --- AGREGAR PROVEEDOR ---
 async function agregarProveedor(event) {
   event.preventDefault();
   const nombre = document.getElementById("nombre-proveedor").value.trim();
@@ -79,51 +69,35 @@ async function agregarProveedor(event) {
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores`, {
       method: 'POST',
-      headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-      },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ nombre, telefono, entrega })
     });
-
     if (!res.ok) throw new Error("Error al guardar");
 
     mostrarNotificacion({ titulo: "Proveedor agregado", mensaje: "Proveedor agregado correctamente.", tipo: "success" });
     bootstrap.Modal.getInstance(document.getElementById("modalAgregarProveedor")).hide();
     document.getElementById("form-agregar-proveedor").reset();
     cargarProveedores();
-  } catch (error) {
-    mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo agregar el proveedor.", tipo: "error" });
-  }
+  } catch (error) { mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo agregar el proveedor.", tipo: "error" }); }
 }
 
-// --- ELIMINAR PROVEEDOR ---
 async function eliminarProveedor(id) {
   if (!confirm("¿Estás seguro que quieres eliminar este proveedor?")) return;
-  
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores/${id}`, { 
         method: 'DELETE',
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
     });
     if (!res.ok) throw new Error("Error al eliminar");
-
     mostrarNotificacion({ titulo: "Eliminado", mensaje: "Proveedor eliminado correctamente.", tipo: "success" });
     cargarProveedores();
-  } catch (error) {
-    mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo eliminar el proveedor.", tipo: "error" });
-  }
+  } catch (error) { mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo eliminar el proveedor.", tipo: "error" }); }
 }
 
-// --- ABRIR MODAL EDICIÓN ---
 async function abrirEditarProveedor(id) {
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores/${id}`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
+        headers: { 'ngrok-skip-browser-warning': 'true' }
     });
     if (!res.ok) throw new Error("Error al cargar");
     const data = await res.json();
@@ -135,12 +109,9 @@ async function abrirEditarProveedor(id) {
 
     const modal = new bootstrap.Modal(document.getElementById("modalEditarProveedor"));
     modal.show();
-  } catch (error) {
-    mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo cargar el proveedor.", tipo: "error" });
-  }
+  } catch (error) { mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo cargar el proveedor.", tipo: "error" }); }
 }
 
-// --- ACTUALIZAR PROVEEDOR ---
 async function actualizarProveedor(event) {
   event.preventDefault();
   const id = parseInt(document.getElementById("edit-id-proveedor").value);
@@ -153,24 +124,17 @@ async function actualizarProveedor(event) {
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores/${id}`, {
       method: 'PUT',
-      headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-      },
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
       body: JSON.stringify({ nombre, telefono, entrega })
     });
 
     if (!res.ok) throw new Error("Error al actualizar");
-
     mostrarNotificacion({ titulo: "Actualizado", mensaje: "Proveedor actualizado correctamente.", tipo: "success" });
     bootstrap.Modal.getInstance(document.getElementById("modalEditarProveedor")).hide();
     cargarProveedores();
-  } catch (error) {
-    mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo actualizar el proveedor.", tipo: "error" });
-  }
+  } catch (error) { mostrarNotificacion({ titulo: "Error", mensaje: "No se pudo actualizar el proveedor.", tipo: "error" }); }
 }
 
-// --- BUSCADOR Y EVENTOS ---
 function filtrarProveedores() {
   const valor = document.getElementById("busqueda-proveedores").value.trim().toLowerCase();
   const filtrados = proveedoresOriginal.filter((p) => p.nombre.toLowerCase().includes(valor));

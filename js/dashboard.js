@@ -1,10 +1,12 @@
-const API_URL_DASH = "http://localhost:3000/api";
+const API_URL_DASH = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
 let ventasCache = []; 
 
-// --- CARGAR DATOS PARA REPORTES AVANZADOS (Mantener para los modales) ---
+// --- CARGAR DATOS PARA REPORTES AVANZADOS ---
 async function actualizarCacheVentas() {
   try {
-    const res = await fetch(`${API_URL_DASH}/ventas`);
+    const res = await fetch(`${API_URL_DASH}/ventas`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if (res.ok) {
       ventasCache = await res.json();
     }
@@ -13,10 +15,12 @@ async function actualizarCacheVentas() {
   }
 }
 
-// --- ACTUALIZAR PANTALLA DEL DASHBOARD (AHORA DESDE SQL SERVER) ---
+// --- ACTUALIZAR PANTALLA DEL DASHBOARD ---
 async function refrescarTotales() {
   try {
-    const res = await fetch(`${API_URL_DASH}/dashboard/resumen`);
+    const res = await fetch(`${API_URL_DASH}/dashboard/resumen`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     if(!res.ok) throw new Error("Error en el resumen");
     const datos = await res.json();
 
@@ -29,12 +33,14 @@ async function refrescarTotales() {
   }
 }
 
-// --- GRÁFICO TOP PRODUCTOS (AHORA DESDE SQL SERVER) ---
+// --- GRÁFICO TOP PRODUCTOS ---
 let graficoTop = null;
 
 async function refrescarTopProductos() {
   try {
-    const res = await fetch(`${API_URL_DASH}/dashboard/top-productos`);
+    const res = await fetch(`${API_URL_DASH}/dashboard/top-productos`, {
+        headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
     const top = await res.json();
     
     const etiquetas = top.map((p) => p.nombre);
@@ -75,12 +81,14 @@ function renderGraficoTopProductos(labels, data) {
   });
 }
 
-// --- GRÁFICO LÍNEAS (AHORA DESDE SQL SERVER) ---
+// --- GRÁFICO LÍNEAS ---
 let graficoVentas = null;
 
 async function obtenerDatosVentasMes() {
     try {
-        const res = await fetch(`${API_URL_DASH}/dashboard/ventas-mes`);
+        const res = await fetch(`${API_URL_DASH}/dashboard/ventas-mes`, {
+            headers: { 'ngrok-skip-browser-warning': 'true' }
+        });
         return await res.json();
     } catch(e) {
         console.error("Error en gráfico", e);
@@ -90,7 +98,6 @@ async function obtenerDatosVentasMes() {
 
 async function graficarSemana() {
   const datosSQL = await obtenerDatosVentasMes();
-  // Tomamos solo los últimos 7 días con ventas para la vista "Semana"
   const ultimos7 = datosSQL.slice(-7);
   
   const etiquetas = ultimos7.map(d => d.dia);
@@ -135,7 +142,7 @@ function renderGraficoVentas(labels, datos, modo) {
   });
 }
 
-// --- REPORTES FINANCIEROS (Se mantienen con el Cache Completo) ---
+// --- REPORTES FINANCIEROS ---
 async function generarReporteVentas() {
   const contenedor = document.getElementById("contenido-modal-reporte");
   if (!contenedor) return;
@@ -208,8 +215,6 @@ function cargarPestanaMensual() {
 
     if (!historial[mesFormato]) historial[mesFormato] = { total: 0, cantidad: 0 };
     historial[mesFormato].total += venta.total;
-    // OJO: En el maestro detalle, 'venta' es el producto individual en el JOIN de la tabla. 
-    // Para simplificar la vista, la cantidad aquí es 1 por cada registro en Detalle.
     historial[mesFormato].cantidad += 1;
   });
 
@@ -278,7 +283,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   document.getElementById("btn-accion-proveedores")?.addEventListener("click", () => document.getElementById("btn-ir-proveedores")?.click());
 
-  // Cargamos los datos visuales si entramos directo a inicio
   document.getElementById("btn-ir-inicio")?.addEventListener("click", async () => {
     await refrescarTotales();
     graficarSemana();
