@@ -71,6 +71,30 @@ app.put('/api/empleados/:id', async (req, res) => {
     }
 });
 
+// --- CREAR NUEVO EMPLEADO (USUARIO) ---
+app.post('/api/empleados', async (req, res) => {
+    try {
+        // Recibimos los datos desde tu usuarios.js
+        const { nombre, cargo, contraseña } = req.body;
+
+        if (!nombre || !cargo || !contraseña) {
+            return res.status(400).send("Faltan datos");
+        }
+
+        let pool = await poolPromise;
+        await pool.request()
+            .input('nombre', sql.VarChar, nombre)
+            .input('cargo', sql.VarChar, cargo)
+            .input('pass', sql.VarChar, contraseña)
+            // Asumimos que el nuevo usuario entra "activo" (1)
+            .query('INSERT INTO Empleados (nombre, cargo, contraseña, activo) VALUES (@nombre, @cargo, @pass, 1)');
+
+        res.status(201).json({ success: true, message: "Empleado creado exitosamente" });
+    } catch (err) {
+        console.error("Error al crear empleado en SQL:", err.message);
+        res.status(500).send(err.message);
+    }
+});
 // --- 3. RUTAS DE CATEGORIAS ---
 app.get('/api/categorias', async (req, res) => {
     try {
