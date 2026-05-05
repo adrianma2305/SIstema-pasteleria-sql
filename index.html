@@ -195,7 +195,7 @@
       <section id="seccion-productos" style="display: none">
         <h2 class="mb-4">Lista de productos</h2>
         <div class="row mb-3 align-items-center">
-          <div class="col-md-4">
+          <div class="col-md-3">
             <input
               type="text"
               id="busqueda-productos"
@@ -203,17 +203,23 @@
               placeholder="Buscar producto..."
             />
           </div>
-          <div class="col-md-2">
+          <!-- NUEVO FILTRO CATEGORIA -->
+          <div class="col-md-3">
+            <select id="filtro-categoria" class="form-select mb-2">
+              <option value="">Todas las categorías</option>
+            </select>
+          </div>
+          <div class="col-md-3">
             <input
               type="number"
               id="busqueda-precio"
               class="form-control mb-2"
               min="0"
               step="0.01"
-              placeholder="Filtrar por precio..."
+              placeholder="Filtrar precio..."
             />
           </div>
-          <div class="col-md-2">
+          <div class="col-md-3">
             <button
               class="btn agregarprod w-100"
               data-bs-toggle="modal"
@@ -229,6 +235,7 @@
               <tr>
                 <th>ID</th>
                 <th>Nombre</th>
+                <th>Categoría</th> <!-- NUEVA COLUMNA -->
                 <th>Precio C$</th>
                 <th>Opciones</th>
               </tr>
@@ -741,6 +748,14 @@
                     </select>
                 </div>
 
+                <!-- NUEVO SELECT DE CATEGORIA EN AGREGAR -->
+                <div class="mb-3">
+                  <label for="categoria-principal" class="form-label">Categoría</label>
+                  <select id="categoria-principal" class="form-select">
+                    <option value="">Seleccione una categoría...</option>
+                  </select>
+                </div>
+
                 <div class="d-grid">
                   <button type="submit" class="btn btn-danger">
                     Guardar Producto
@@ -802,6 +817,14 @@
                   </select>
                 </div>
 
+                <!-- NUEVO SELECT DE CATEGORIA EN EDITAR -->
+                <div class="mb-3">
+                  <label for="edit-categoria-principal" class="form-label">Categoría</label>
+                  <select id="edit-categoria-principal" class="form-select">
+                    <option value="">Seleccione una categoría...</option>
+                  </select>
+                </div>
+
                 <div class="d-grid">
                   <button type="submit" class="btn btn-info">
                     Actualizar Producto
@@ -831,7 +854,7 @@
               <!-- Aquí se llenan los empleados desde usuarios.js -->
             </ul>
 
-            <!-- Acciones de administrador (ya lo tenías) -->
+            <!-- Acciones de administrador -->
             <div id="admin-acciones" style="display: none; margin-top: 1rem;">
               <button class="btn btn-success w-100" onclick="abrirModalAgregarUsuario()">
                 <i class="bi bi-plus-lg"></i> Crear nuevo usuario
@@ -854,7 +877,6 @@
           </div>
           <div class="modal-body">
             <p id="texto-usuario-seleccionado" class="mb-2" style="font-weight: 600;">
-              <!-- Aquí se pone algo como: Contraseña para Empleado 01 (Asistente) -->
             </p>
             <div class="mb-3">
               <label for="password-cambio-usuario" class="form-label">Contraseña del usuario</label>
@@ -977,11 +999,6 @@
         </div>
       </div>
     </div>
-
-      <!--modal ventas por mes-->
-
-      
-
 
 
     <!-- modal de notificacion. debe ir al final -->

@@ -1,25 +1,24 @@
-const API_URL = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
+// Usamos localhost para desarrollo local rápido
+const API_URL = "http://localhost:3000/api";
 let productosOriginal = [];
 
 // --- CARGAR PRODUCTOS ---
 async function cargarProductos() {
   const tabla = document.querySelector("#productos-table tbody");
-  tabla.innerHTML = "<tr><td colspan='4'>Cargando...</td></tr>";
+  tabla.innerHTML = "<tr><td colspan='5'>Cargando...</td></tr>";
   
   try {
-    const respuesta = await fetch(`${API_URL}/productos`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
-    });
+    const respuesta = await fetch(`${API_URL}/productos`);
+    if (!respuesta.ok) throw new Error("Error al cargar productos");
     const productos = await respuesta.json();
     
     productosOriginal = productos;
     renderizarProductos(productos);
     cargarSelectsInsumosProducto();
+    cargarSelectsCategorias(); // Llamamos a las categorías
   } catch (error) {
     console.error(error);
-    tabla.innerHTML = "<tr><td colspan='4'>Error al cargar desde SQL Server.</td></tr>";
+    tabla.innerHTML = "<tr><td colspan='5'>Error al cargar desde SQL Server. Asegúrate de que el servidor (node server.js) esté corriendo.</td></tr>";
   }
 }
 
@@ -31,8 +30,10 @@ function renderizarProductos(productos) {
   const isAdmin = (typeof esAdmin === 'function') ? esAdmin() : false;
 
   productos.forEach((p) => {
-    // Si tiene insumo, mostramos el nombre, si no un guion
     const nombreInsumo = p.insumo ? `<span class="badge bg-secondary">${p.insumo.nombre}</span>` : "-";
+    
+    // Insignia visual para la categoría
+    const nombreCategoria = p.categoria ? `<span class="badge bg-primary">${p.categoria.nombre}</span>` : `<span class="badge bg-light text-dark">Sin categoría</span>`;
 
     const botonesAccion = isAdmin ? `
       <button class="btn btn-sm btn-danger" onclick="eliminarProducto(${p.id})" title="Eliminar"><i class="bi bi-trash"></i></button>
@@ -46,12 +47,40 @@ function renderizarProductos(productos) {
           <div class="fw-bold">${p.nombre}</div>
           <small class="text-muted">Base: ${nombreInsumo}</small>
         </td>
+        <td>${nombreCategoria}</td>
         <td>C$ ${p.precio.toFixed(2)}</td>
         <td>${botonesAccion}</td>
       </tr>
     `;
     tabla.insertAdjacentHTML("beforeend", fila);
   });
+}
+
+// --- CARGAR SELECTS DE CATEGORIAS ---
+async function cargarSelectsCategorias() {
+  try {
+    const respuesta = await fetch(`${API_URL}/categorias`);
+    if (!respuesta.ok) throw new Error("Error al cargar categorías");
+    const categorias = await respuesta.json();
+
+    const selectFiltro = document.getElementById("filtro-categoria");
+    const selectAgregar = document.getElementById("categoria-principal");
+    const selectEditar = document.getElementById("edit-categoria-principal");
+
+    let htmlFiltro = '<option value="">Todas las categorías</option>';
+    let htmlModal = '<option value="">Seleccione una categoría...</option>';
+    
+    categorias.forEach(c => {
+      htmlFiltro += `<option value="${c.id}">${c.nombre}</option>`;
+      htmlModal += `<option value="${c.id}">${c.nombre}</option>`;
+    });
+
+    if (selectFiltro) selectFiltro.innerHTML = htmlFiltro;
+    if (selectAgregar) selectAgregar.innerHTML = htmlModal;
+    if (selectEditar) selectEditar.innerHTML = htmlModal;
+  } catch (error) {
+    console.error("Error cargando categorías:", error);
+  }
 }
 
 // --- AGREGAR PRODUCTO ---
@@ -65,19 +94,20 @@ async function agregarProducto(event) {
   
   const nombre = document.getElementById("nombre").value.trim();
   const precio = parseFloat(document.getElementById("precio").value);
+  
   const insumoVal = document.getElementById("insumo-principal").value;
   const insumo_id = insumoVal ? parseInt(insumoVal) : null;
+
+  const categoriaVal = document.getElementById("categoria-principal").value;
+  const categoria_id = categoriaVal ? parseInt(categoriaVal) : null;
 
   if (!nombre || isNaN(precio)) return;
   
   try {
     const respuesta = await fetch(`${API_URL}/productos`, {
       method: 'POST',
-      headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-      },
-      body: JSON.stringify({ nombre, precio, insumo_id })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, precio, insumo_id, categoria_id }) 
     });
 
     if (!respuesta.ok) throw new Error("Error al guardar");
@@ -101,12 +131,7 @@ async function eliminarProducto(id) {
   if (!confirm("¿Estás seguro que quieres eliminar este producto?")) return;
   
   try {
-    const respuesta = await fetch(`${API_URL}/productos/${id}`, { 
-        method: 'DELETE',
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
-    });
+    const respuesta = await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' });
     if (!respuesta.ok) throw new Error("No se pudo eliminar");
 
     mostrarNotificacion({titulo: "Eliminado", mensaje: "Producto eliminado correctamente.", tipo: "success"});
@@ -116,14 +141,10 @@ async function eliminarProducto(id) {
   }
 }
 
-// --- CARGAR SELECTS DE INSUMOS  ---
+// --- CARGAR SELECTS DE INSUMOS ---
 async function cargarSelectsInsumosProducto() {
   try {
-    const respuesta = await fetch(`${API_URL}/insumos`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
-    });
+    const respuesta = await fetch(`${API_URL}/insumos`);
     if (!respuesta.ok) throw new Error("Error al cargar insumos");
     const insumos = await respuesta.json();
 
@@ -145,11 +166,7 @@ async function cargarSelectsInsumosProducto() {
 // --- ABRIR MODAL DE EDICIÓN ---
 async function abrirEditarProducto(id) {
   try {
-    const respuesta = await fetch(`${API_URL}/productos/${id}`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
-    });
+    const respuesta = await fetch(`${API_URL}/productos/${id}`);
     if (!respuesta.ok) throw new Error("Error al obtener producto");
     const data = await respuesta.json();
 
@@ -157,6 +174,7 @@ async function abrirEditarProducto(id) {
     document.getElementById("edit-nombre").value = data.nombre;
     document.getElementById("edit-precio").value = data.precio;
     document.getElementById("edit-insumo-principal").value = data.insumo_id || "";
+    document.getElementById("edit-categoria-principal").value = data.categoria_id || ""; 
     
     const modal = new bootstrap.Modal(document.getElementById("modalEditar"));
     modal.show();
@@ -175,14 +193,14 @@ async function actualizarProducto(event) {
   const insumoVal = document.getElementById("edit-insumo-principal").value;
   const insumo_id = insumoVal ? parseInt(insumoVal) : null;
 
+  const categoriaVal = document.getElementById("edit-categoria-principal").value;
+  const categoria_id = categoriaVal ? parseInt(categoriaVal) : null;
+
   try {
     const respuesta = await fetch(`${API_URL}/productos/${id}`, {
       method: 'PUT',
-      headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-      },
-      body: JSON.stringify({ nombre, precio, insumo_id })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, precio, insumo_id, categoria_id }) 
     });
 
     if (!respuesta.ok) throw new Error("No se pudo actualizar");
@@ -200,10 +218,12 @@ document.addEventListener("DOMContentLoaded", cargarProductos);
 
 document.getElementById("busqueda-productos").addEventListener("input", filtrarProductos);
 document.getElementById("busqueda-precio").addEventListener("input", filtrarProductos);
+document.getElementById("filtro-categoria").addEventListener("change", filtrarProductos);
 
 function filtrarProductos() {
   const valor = document.getElementById("busqueda-productos").value.trim().toLowerCase();
   const precioBuscado = document.getElementById("busqueda-precio").value;
+  const categoriaBuscada = document.getElementById("filtro-categoria").value;
   
   let filtrados = productosOriginal.filter((p) =>
     p.nombre.toLowerCase().includes(valor)
@@ -211,6 +231,10 @@ function filtrarProductos() {
   
   if (precioBuscado !== "") {
     filtrados = filtrados.filter((p) => p.precio == parseFloat(precioBuscado));
+  }
+
+  if (categoriaBuscada !== "") {
+    filtrados = filtrados.filter((p) => p.categoria_id == parseInt(categoriaBuscada));
   }
   
   renderizarProductos(filtrados);

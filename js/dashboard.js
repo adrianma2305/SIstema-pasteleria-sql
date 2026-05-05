@@ -1,4 +1,4 @@
-const API_URL_DASH = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
+const API_URL_DASH = "http://localhost:3000/api";
 let ventasCache = []; 
 
 // --- FUNCIÓN PARA DESCARGAR TODAS LAS VENTAS ---
