@@ -30,7 +30,6 @@ const poolPromise = sql.connect(dbConfig).then(pool => {
 app.get('/api/empleados', async (req, res) => {
     try {
         let pool = await poolPromise; 
-        // BORRADOR LOGICO: Solo mostramos los activos
         let result = await pool.request().query('SELECT id, nombre, cargo FROM empleados WHERE activo = 1 ORDER BY nombre');
         res.json(result.recordset);
     } catch (err) { res.status(500).send(err.message); }
@@ -66,7 +65,7 @@ app.get('/api/productos', async (req, res) => {
             FROM productos p 
             LEFT JOIN insumos i ON p.insumo_id = i.id
             LEFT JOIN categorias c ON p.categoria_id = c.id
-            WHERE p.activo = 1 -- BORRADOR LOGICO
+            WHERE p.activo = 1
         `);
         
         const productosFormateados = result.recordset.map(prod => ({
@@ -119,7 +118,8 @@ app.put('/api/productos/:id', async (req, res) => {
             .input('precio', sql.Decimal(10,2), precio)
             .input('insumo_id', sql.Int, insumo_id || null)
             .input('categoria_id', sql.Int, categoria_id || null)
-            .query('UPDATE productos SET nombre = @nombre, precio = @precio, insumo_id = @insumo_id, categoria_id = @categoria_id WHERE id = @id');
+            // AUDITORIA: Agregamos fecha_actualizacion = GETDATE()
+            .query('UPDATE productos SET nombre = @nombre, precio = @precio, insumo_id = @insumo_id, categoria_id = @categoria_id, fecha_actualizacion = GETDATE() WHERE id = @id');
         res.status(200).send('Producto actualizado');
     } catch (err) { res.status(500).send(err.message); }
 });
@@ -130,7 +130,6 @@ app.delete('/api/productos/:id', async (req, res) => {
         let pool = await poolPromise;
         await pool.request()
             .input('id', sql.Int, id)
-            // BORRADOR LOGICO: Solo actualizamos el estado, no borramos la fila
             .query('UPDATE productos SET activo = 0 WHERE id = @id');
         res.status(200).send('Producto eliminado lógicamente');
     } catch (err) { 
@@ -180,7 +179,8 @@ app.put('/api/proveedores/:id', async (req, res) => {
             .input('nombre', sql.VarChar, nombre)
             .input('telefono', sql.VarChar, telefono || null)
             .input('entrega', sql.Date, entrega || null)
-            .query('UPDATE proveedores SET nombre = @nombre, telefono = @telefono, entrega = @entrega WHERE id = @id');
+            // AUDITORIA: Agregamos fecha_actualizacion = GETDATE()
+            .query('UPDATE proveedores SET nombre = @nombre, telefono = @telefono, entrega = @entrega, fecha_actualizacion = GETDATE() WHERE id = @id');
         res.status(200).send('Proveedor actualizado');
     } catch (err) { res.status(500).send(err.message); }
 });
@@ -254,7 +254,8 @@ app.put('/api/insumos/:id', async (req, res) => {
             .input('unidad', sql.VarChar, unidad || null)
             .input('precio', sql.Decimal(10,2), precio || null)
             .input('proveedor_id', sql.Int, proveedor_id || null)
-            .query('UPDATE insumos SET nombre = @nombre, unidad = @unidad, precio = @precio, proveedor_id = @proveedor_id WHERE id = @id');
+            // AUDITORIA: Agregamos fecha_actualizacion = GETDATE()
+            .query('UPDATE insumos SET nombre = @nombre, unidad = @unidad, precio = @precio, proveedor_id = @proveedor_id, fecha_actualizacion = GETDATE() WHERE id = @id');
         res.status(200).send('Insumo actualizado');
     } catch (err) { res.status(500).send(err.message); }
 });
@@ -303,8 +304,6 @@ app.post('/api/clientes', async (req, res) => {
 app.get('/api/ventas', async (req, res) => {
     try {
         let pool = await poolPromise;
-        // OJO: En las ventas NO filtramos por productos activos. 
-        // Si borraste un pastel hoy, igual tiene que salir en el historial de ventas del mes pasado.
         let result = await pool.request().query(`
             SELECT v.*, 
                    p.nombre as nombre_producto,
