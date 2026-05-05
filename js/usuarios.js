@@ -1,5 +1,6 @@
 let usuarioActual = null;
 const API_URL_USUARIOS = "https://kalel-tintometric-nonefficiently.ngrok-free.dev/api";
+let listaEmpleadosAdmin = []; // Para el buscador
 
 async function inicializarSistemaConLogin() {
   const mainContent = document.querySelector(".main-content");
@@ -138,6 +139,7 @@ window.abrirModalAgregarUsuario = function () {
   modal.show();
 };
 
+// --- CREAR NUEVO USUARIO ---
 document.getElementById("form-agregar-usuario")?.addEventListener("submit", async function (e) {
   e.preventDefault();
   const nombre = document.getElementById("nombre-usuario").value.trim();
@@ -160,15 +162,131 @@ document.getElementById("form-agregar-usuario")?.addEventListener("submit", asyn
 
     if (!respuesta.ok) throw new Error("Error al crear");
 
-    alert("Usuario creado exitosamente");
+    mostrarNotificacion({titulo: "Usuario Creado", mensaje: "El usuario ha sido registrado.", tipo: "success"});
     const modalEl = document.getElementById("modalAgregarUsuario");
     const modal = bootstrap.Modal.getInstance(modalEl);
     if (modal) modal.hide();
+    
+    // Si estamos en la pestaña de admin, recargar la tabla
+    if (document.getElementById("seccion-usuarios").style.display === "block") {
+      cargarTablaUsuariosAdmin();
+    }
   } catch (error) {
-    alert("Error al crear usuario");
+    mostrarNotificacion({titulo: "Error", mensaje: "No se pudo crear el usuario", tipo: "error"});
   }
 });
 
+// --- ELIMINAR USUARIO (Solo Admin) ---
+window.eliminarUsuario = async function(id) {
+  if (usuarioActual.id === id) {
+    return alert("No puedes eliminar tu propio usuario mientras tienes la sesión iniciada.");
+  }
+
+  if (!confirm("⚠️ ¿Peligro: Estás seguro que quieres eliminar este usuario permanentemente?")) return;
+
+  try {
+    const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, {
+      method: 'DELETE',
+      headers: { 'ngrok-skip-browser-warning': 'true' }
+    });
+
+    if (!res.ok) throw new Error("Error al eliminar");
+    mostrarNotificacion({titulo: "Usuario Eliminado", mensaje: "Se ha borrado el acceso al sistema.", tipo: "success"});
+    cargarTablaUsuariosAdmin();
+  } catch (error) {
+    mostrarNotificacion({titulo: "Error", mensaje: "No se pudo eliminar el usuario.", tipo: "error"});
+  }
+};
+
+// --- CARGAR TABLA DE ADMINISTRACIÓN ---
+window.cargarTablaUsuariosAdmin = async function() {
+  const tbody = document.querySelector("#usuarios-table-admin tbody");
+  if (!tbody) return;
+  tbody.innerHTML = "<tr><td colspan='4' class='text-center'>Cargando usuarios...</td></tr>";
+
+  try {
+    const res = await fetch(`${API_URL_USUARIOS}/empleados`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+    if (!res.ok) throw new Error("Error de red");
+    const empleados = await res.json();
+    listaEmpleadosAdmin = empleados;
+    renderizarTablaUsuarios(empleados);
+  } catch (error) {
+    tbody.innerHTML = "<tr><td colspan='4' class='text-center text-danger'>Error al cargar los usuarios.</td></tr>";
+  }
+};
+
+function renderizarTablaUsuarios(empleados) {
+  const tbody = document.querySelector("#usuarios-table-admin tbody");
+  tbody.innerHTML = "";
+  
+  empleados.forEach(emp => {
+    // Insignia visual para roles
+    let badgeRole = emp.cargo.toLowerCase().includes('admin') 
+      ? `<span class="badge bg-danger">${emp.cargo}</span>` 
+      : `<span class="badge bg-secondary">${emp.cargo}</span>`;
+
+    // Botón de eliminar (deshabilitado para el usuario actual)
+    let btnEliminar = emp.id === usuarioActual.id 
+      ? `<button class="btn btn-sm btn-outline-secondary" disabled title="Tú"><i class="bi bi-person-fill"></i></button>`
+      : `<button class="btn btn-sm btn-danger" onclick="eliminarUsuario(${emp.id})" title="Eliminar Acceso"><i class="bi bi-trash"></i></button>`;
+
+    tbody.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td class="fw-bold">${emp.id}</td>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-person-circle fs-4 text-muted"></i>
+            ${emp.nombre}
+          </div>
+        </td>
+        <td>${badgeRole}</td>
+        <td class="text-center">${btnEliminar}</td>
+      </tr>
+    `);
+  });
+}
+
+// Buscador de la tabla Admin
+document.getElementById("busqueda-usuarios-tabla")?.addEventListener("input", function(e) {
+  const val = e.target.value.toLowerCase();
+  const filtrados = listaEmpleadosAdmin.filter(emp => 
+    emp.nombre.toLowerCase().includes(val) || emp.cargo.toLowerCase().includes(val)
+  );
+  renderizarTablaUsuarios(filtrados);
+});
+
+// --- SISTEMA MASTER RESET DE CONTRASEÑA ---
+window.iniciarRecuperacion = async function() {
+  const idAdmin = document.getElementById("login-usuario").value;
+  if (!idAdmin) return mostrarErrorLogin("Primero selecciona tu usuario en la lista para recuperar la contraseña.");
+
+  const pinMaestro = prompt("🔑 SOPORTE TECNOAYUDA:\nIngrese el PIN Maestro de Recuperación:");
+  if (pinMaestro !== "UNI-2026") return alert("❌ PIN Maestro incorrecto. Acceso denegado.");
+
+  const nuevaClave = prompt("✅ PIN Correcto.\nIngrese la NUEVA contraseña para este usuario:");
+  if (!nuevaClave || nuevaClave.trim() === "") return alert("Operación cancelada. La contraseña no puede estar vacía.");
+
+  try {
+      const hashNuevo = await hashPassword(nuevaClave);
+      const res = await fetch(`${API_URL_USUARIOS}/empleados/${idAdmin}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+          body: JSON.stringify({ password: hashNuevo, es_recuperacion: true })
+      });
+
+      if (res.ok) {
+        alert("🎉 Contraseña restablecida con éxito. Ya puedes iniciar sesión con tu nueva clave.");
+        document.getElementById("login-password").value = ""; // Limpiar campo
+      }
+      else alert("Error al actualizar la contraseña en la base de datos.");
+  } catch (error) {
+      console.error(error);
+      alert("Error de conexión al intentar recuperar.");
+  }
+};
+
+
+// --- PERMISOS ---
 function esAdmin() {
   if (!usuarioActual) return false;
   const cargo = usuarioActual.cargo.toLowerCase().trim();
@@ -177,27 +295,27 @@ function esAdmin() {
 
 function aplicarPermisosInterfaz() {
   const btnReporte = document.getElementById("btn-accion-reporte");
-  const btnConfigUsuarios = document.querySelector("#admin-acciones"); 
   const navInicio = document.getElementById("btn-ir-inicio");
   const navProductos = document.getElementById("btn-ir-productos");
   const navProveedores = document.getElementById("btn-ir-proveedores");
+  const navUsuarios = document.getElementById("nav-item-usuarios"); // Pestaña de usuarios
   const btnAgregarProd = document.querySelector("#seccion-productos .agregarprod");
   const btnAgregarProv = document.querySelector("#seccion-proveedores .agregarprod");
 
   if (esAdmin()) {
     if(btnReporte) btnReporte.style.display = "block";
-    if(btnConfigUsuarios) btnConfigUsuarios.style.display = "block";
     if(navInicio) navInicio.parentElement.style.display = "block";
     if(navProductos) navProductos.parentElement.style.display = "block";
     if(navProveedores) navProveedores.parentElement.style.display = "block";
+    if(navUsuarios) navUsuarios.style.display = "block"; // Mostrar al Admin
     if(btnAgregarProd) btnAgregarProd.style.display = "inline-block";
     if(btnAgregarProv) btnAgregarProv.style.display = "inline-block";
   } else {
     if(btnReporte) btnReporte.style.display = "none";
-    if(btnConfigUsuarios) btnConfigUsuarios.style.display = "none";
     if(navInicio) navInicio.parentElement.style.display = "none";
     if(navProductos) navProductos.parentElement.style.display = "none";
     if(navProveedores) navProveedores.parentElement.style.display = "none";
+    if(navUsuarios) navUsuarios.style.display = "none"; // Ocultar al vendedor
     if(btnAgregarProd) btnAgregarProd.style.display = "none";
     if(btnAgregarProv) btnAgregarProv.style.display = "none";
 

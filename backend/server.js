@@ -45,6 +45,32 @@ app.get('/api/empleados/:id', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
+// --- ACTUALIZAR CONTRASEÑA (RECUPERACIÓN) ---
+app.put('/api/empleados/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { password, es_recuperacion } = req.body;
+
+        if (!es_recuperacion || !password) {
+            return res.status(400).send("Faltan datos para la recuperación");
+        }
+
+        let pool = await poolPromise;
+        let result = await pool.request()
+            .input('id', sql.Int, id)
+            .input('pass', sql.VarChar, password)
+            .query('UPDATE Empleados SET contraseña = @pass WHERE id = @id');
+
+        if (result.rowsAffected[0] === 0) {
+            return res.status(404).send("Empleado no encontrado");
+        }
+
+        res.json({ success: true, message: "Contraseña actualizada correctamente" });
+    } catch (err) {
+        res.status(500).send(err.message);
+    }
+});
+
 // --- 3. RUTAS DE CATEGORIAS ---
 app.get('/api/categorias', async (req, res) => {
     try {
