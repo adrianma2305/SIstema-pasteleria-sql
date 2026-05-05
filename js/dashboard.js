@@ -1,14 +1,10 @@
 const API_URL_DASH = "http://localhost:3000/api";
 let ventasCache = []; 
 
-// --- FUNCIÓN PARA DESCARGAR TODAS LAS VENTAS ---
+// --- CARGAR DATOS PARA REPORTES AVANZADOS (Mantener para los modales) ---
 async function actualizarCacheVentas() {
   try {
-    const res = await fetch(`${API_URL_DASH}/ventas`, {
-        headers: {
-            'ngrok-skip-browser-warning': 'true'
-        }
-    });
+    const res = await fetch(`${API_URL_DASH}/ventas`);
     if (res.ok) {
       ventasCache = await res.json();
     }
@@ -17,105 +13,37 @@ async function actualizarCacheVentas() {
   }
 }
 
-// --- FECHAS AUXILIARES ---
-function getFechaInicio(periodo) {
-  const now = new Date();
-  if (periodo === "dia") {
-    now.setHours(0, 0, 0, 0);
-  } else if (periodo === "semana") {
-    const diaSemana = now.getDay(); 
-    const diff = now.getDate() - diaSemana + (diaSemana === 0 ? -6 : 1);
-    now.setDate(diff);
-    now.setHours(0, 0, 0, 0);
-  } else if (periodo === "mes") {
-    now.setDate(1);
-    now.setHours(0, 0, 0, 0);
-  }
-  return now;
-}
-
-function getFechaAyer() {
-  const ahora = new Date();
-  ahora.setDate(ahora.getDate() - 1);
-  ahora.setHours(0, 0, 0, 0);
-  return ahora;
-}
-
-// --- CÁLCULOS MATEMÁTICOS ---
-function calcularTotalVentasDesde(fechaInicio) {
-  return ventasCache.reduce((acc, v) => {
-    const fechaVenta = new Date(v.fecha);
-    if (fechaVenta >= fechaInicio) {
-      return acc + parseFloat(v.total || 0);
-    }
-    return acc;
-  }, 0);
-}
-
-function calcularTotalVentasDiaExacto(fechaObjetivo) {
-  const inicio = new Date(fechaObjetivo);
-  inicio.setHours(0, 0, 0, 0);
-  const fin = new Date(inicio);
-  fin.setHours(23, 59, 59, 999);
-
-  return ventasCache.reduce((acc, v) => {
-    const d = new Date(v.fecha);
-    if (d >= inicio && d <= fin) return acc + parseFloat(v.total || 0);
-    return acc;
-  }, 0);
-}
-
-function obtenerTopProductosLocal(fechaInicio, limite = 5) {
-  const resumen = {};
-
-  ventasCache.forEach((v) => {
-    const d = new Date(v.fecha);
-    if (d >= fechaInicio && v.producto_id) {
-      const nombre = v.producto ? v.producto.nombre : "Producto eliminado";
-      if (!resumen[v.producto_id]) resumen[v.producto_id] = { nombre, cantidad: 0 };
-      resumen[v.producto_id].cantidad += v.cantidad;
-    }
-  });
-
-  return Object.values(resumen)
-    .sort((a, b) => b.cantidad - a.cantidad)
-    .slice(0, limite);
-}
-
-// --- ACTUALIZAR PANTALLA DEL DASHBOARD ---
+// --- ACTUALIZAR PANTALLA DEL DASHBOARD (AHORA DESDE SQL SERVER) ---
 async function refrescarTotales() {
-  await actualizarCacheVentas(); 
+  try {
+    const res = await fetch(`${API_URL_DASH}/dashboard/resumen`);
+    if(!res.ok) throw new Error("Error en el resumen");
+    const datos = await res.json();
 
-  const hoy = new Date();
-  const ayer = getFechaAyer();
-  const semana = getFechaInicio("semana");
-  const mes = getFechaInicio("mes");
-
-  const totalDia = calcularTotalVentasDiaExacto(hoy);
-  const totalAyer = calcularTotalVentasDiaExacto(ayer);
-
-  const dif = totalDia - totalAyer;
-  let textoDif = dif > 0 ? `C$ ${dif.toFixed(2)} más en ventas que ayer` 
-                 : dif < 0 ? `C$ ${Math.abs(dif).toFixed(2)} menos en ventas que ayer` 
-                 : "Igual que ayer";
-
-  const totalSemana = calcularTotalVentasDesde(semana);
-  const totalMes = calcularTotalVentasDesde(mes);
-
-  document.getElementById("ventas-dia").innerText = `C$ ${totalDia.toFixed(2)}`;
-  document.getElementById("ventas-comparacion-dia").innerText = textoDif;
-  document.getElementById("ventas-semana").innerText = `C$ ${totalSemana.toFixed(2)}`;
-  document.getElementById("ventas-mes").innerText = `C$ ${totalMes.toFixed(2)}`;
+    document.getElementById("ventas-dia").innerText = `C$ ${datos.dia.toFixed(2)}`;
+    document.getElementById("ventas-comparacion-dia").innerText = "Total contabilizado hoy";
+    document.getElementById("ventas-semana").innerText = `C$ ${datos.semana.toFixed(2)}`;
+    document.getElementById("ventas-mes").innerText = `C$ ${datos.mes.toFixed(2)}`;
+  } catch(error) {
+    console.error("Error al refrescar totales:", error);
+  }
 }
 
-// --- GRÁFICO TOP PRODUCTOS ---
+// --- GRÁFICO TOP PRODUCTOS (AHORA DESDE SQL SERVER) ---
 let graficoTop = null;
 
-function refrescarTopProductos() {
-  const top = obtenerTopProductosLocal(getFechaInicio("mes"), 8);
-  const etiquetas = top.map((p) => p.nombre);
-  const datos = top.map((p) => p.cantidad);
-  renderGraficoTopProductos(etiquetas, datos);
+async function refrescarTopProductos() {
+  try {
+    const res = await fetch(`${API_URL_DASH}/dashboard/top-productos`);
+    const top = await res.json();
+    
+    const etiquetas = top.map((p) => p.nombre);
+    const datos = top.map((p) => p.total_vendido);
+    
+    renderGraficoTopProductos(etiquetas, datos);
+  } catch (error) {
+    console.error("Error cargando top productos:", error);
+  }
 }
 
 function renderGraficoTopProductos(labels, data) {
@@ -147,41 +75,37 @@ function renderGraficoTopProductos(labels, data) {
   });
 }
 
-// --- GRÁFICO LÍNEAS (VENTAS) ---
+// --- GRÁFICO LÍNEAS (AHORA DESDE SQL SERVER) ---
 let graficoVentas = null;
 
-function graficarSemana() {
-  const inicioSemana = getFechaInicio("semana");
-  const datos = new Array(7).fill(0);
-
-  ventasCache.forEach((v) => {
-    const d = new Date(v.fecha);
-    if (d >= inicioSemana) {
-      let dia = d.getDay(); 
-      dia = dia === 0 ? 6 : dia - 1; 
-      datos[dia] += parseFloat(v.total || 0);
+async function obtenerDatosVentasMes() {
+    try {
+        const res = await fetch(`${API_URL_DASH}/dashboard/ventas-mes`);
+        return await res.json();
+    } catch(e) {
+        console.error("Error en gráfico", e);
+        return [];
     }
-  });
-
-  const NOMBRES_DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-  renderGraficoVentas(NOMBRES_DIAS, datos, "Semana");
 }
 
-function graficarMes() {
-  const inicioMes = getFechaInicio("mes");
-  const dias = new Date().getDate(); // Días transcurridos del mes
-  const etiquetas = Array.from({ length: dias }, (_, i) => (i + 1).toString());
-  const datos = new Array(dias).fill(0);
+async function graficarSemana() {
+  const datosSQL = await obtenerDatosVentasMes();
+  // Tomamos solo los últimos 7 días con ventas para la vista "Semana"
+  const ultimos7 = datosSQL.slice(-7);
+  
+  const etiquetas = ultimos7.map(d => d.dia);
+  const datos = ultimos7.map(d => parseFloat(d.total_dia));
 
-  ventasCache.forEach((v) => {
-    const d = new Date(v.fecha);
-    if (d >= inicioMes) {
-      const dia = d.getDate() - 1;
-      if (dia >= 0 && dia < dias) datos[dia] += parseFloat(v.total || 0);
-    }
-  });
+  renderGraficoVentas(etiquetas, datos, "Últimos 7 días activos");
+}
 
-  renderGraficoVentas(etiquetas, datos, "Mes");
+async function graficarMes() {
+  const datosSQL = await obtenerDatosVentasMes();
+  
+  const etiquetas = datosSQL.map(d => d.dia);
+  const datos = datosSQL.map(d => parseFloat(d.total_dia));
+
+  renderGraficoVentas(etiquetas, datos, "Mes Actual");
 }
 
 function renderGraficoVentas(labels, datos, modo) {
@@ -211,7 +135,7 @@ function renderGraficoVentas(labels, datos, modo) {
   });
 }
 
-// --- REPORTES FINANCIEROS ---
+// --- REPORTES FINANCIEROS (Se mantienen con el Cache Completo) ---
 async function generarReporteVentas() {
   const contenedor = document.getElementById("contenido-modal-reporte");
   if (!contenedor) return;
@@ -224,7 +148,7 @@ async function generarReporteVentas() {
 
   const agrupado = {};
   ventasCache.forEach((venta) => {
-    const idProd = venta.producto_id || 'eliminado';
+    const idProd = venta.producto?.nombre || 'eliminado';
     const nombreProd = venta.producto ? venta.producto.nombre : "Producto eliminado";
 
     if (!agrupado[idProd]) {
@@ -262,7 +186,7 @@ async function generarReporteVentas() {
 }
 
 async function abrirReporteCompleto() {
-  if (!esAdmin()) {
+  if (typeof esAdmin === 'function' && !esAdmin()) {
     mostrarNotificacion({ titulo: "Acceso Restringido", mensaje: "Solo los administradores pueden ver los reportes financieros.", tipo: "error" });
     return;
   }
@@ -284,10 +208,12 @@ function cargarPestanaMensual() {
 
     if (!historial[mesFormato]) historial[mesFormato] = { total: 0, cantidad: 0 };
     historial[mesFormato].total += venta.total;
+    // OJO: En el maestro detalle, 'venta' es el producto individual en el JOIN de la tabla. 
+    // Para simplificar la vista, la cantidad aquí es 1 por cada registro en Detalle.
     historial[mesFormato].cantidad += 1;
   });
 
-  let html = `<table class="table table-bordered align-middle"><thead class="table-dark"><tr><th>Mes</th><th class="text-center">Ventas</th><th class="text-end">Total</th></tr></thead><tbody>`;
+  let html = `<table class="table table-bordered align-middle"><thead class="table-dark"><tr><th>Mes</th><th class="text-center">Registros Vendidos</th><th class="text-end">Total</th></tr></thead><tbody>`;
   Object.keys(historial).forEach(mes => {
     html += `<tr><td class="fw-bold text-primary">${mes}</td><td class="text-center">${historial[mes].cantidad}</td><td class="text-end fw-bold">C$ ${historial[mes].total.toFixed(2)}</td></tr>`;
   });

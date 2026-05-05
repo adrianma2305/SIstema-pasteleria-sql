@@ -295,11 +295,10 @@ app.post('/api/clientes', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 8. RUTAS DE VENTAS (NUEVO MODELO MAESTRO-DETALLE) ---
+// --- 8. RUTAS DE VENTAS (MAESTRO-DETALLE) ---
 app.get('/api/ventas', async (req, res) => {
     try {
         let pool = await poolPromise;
-        // Unimos Cabecera y Detalle para que tu tabla del frontend siga funcionando igual
         let result = await pool.request().query(`
             SELECT 
                 v.id as factura_id,
@@ -343,7 +342,6 @@ app.post('/api/ventas', async (req, res) => {
         transaction = new sql.Transaction(pool);
         await transaction.begin();
 
-        // 1. Insertar la Cabecera (Ventas)
         const requestCabecera = new sql.Request(transaction);
         let resultCabecera = await requestCabecera
             .input('cliente_id', sql.Int, cliente_id || null)
@@ -353,7 +351,6 @@ app.post('/api/ventas', async (req, res) => {
         
         const nuevaVentaId = resultCabecera.recordset[0].id;
 
-        // 2. Insertar los Detalles (Ventas_Detalle)
         for (let item of detalles) {
             const requestDetalle = new sql.Request(transaction);
             await requestDetalle
@@ -365,18 +362,66 @@ app.post('/api/ventas', async (req, res) => {
                 .query('INSERT INTO Ventas_Detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (@venta_id, @producto_id, @cantidad, @precio_unitario, @subtotal)');
         }
 
-        // Si todo sale perfecto, hacemos COMMIT (guardar cambios)
         await transaction.commit();
         res.status(201).json({ message: 'Venta registrada con éxito', id: nuevaVentaId });
         
     } catch (err) { 
-        // Si hay CUALQUIER error, hacemos ROLLBACK (cancelar todo)
         if (transaction) await transaction.rollback();
         res.status(500).send(err.message); 
     }
 });
 
-// --- 9. INICIAR SERVIDOR ---
+// --- 9. RUTAS DEL DASHBOARD (NUEVO) ---
+app.get('/api/dashboard/resumen', async (req, res) => {
+    try {
+        let pool = await poolPromise;
+        // Ventas del día (ignora la hora, solo compara el día)
+        let qDia = await pool.request().query(`SELECT ISNULL(SUM(total), 0) as total FROM Ventas WHERE CAST(fecha as DATE) = CAST(GETDATE() as DATE) AND activo = 1`);
+        // Ventas de los últimos 7 días
+        let qSemana = await pool.request().query(`SELECT ISNULL(SUM(total), 0) as total FROM Ventas WHERE fecha >= DATEADD(day, -7, GETDATE()) AND activo = 1`);
+        // Ventas del mes actual
+        let qMes = await pool.request().query(`SELECT ISNULL(SUM(total), 0) as total FROM Ventas WHERE MONTH(fecha) = MONTH(GETDATE()) AND YEAR(fecha) = YEAR(GETDATE()) AND activo = 1`);
+
+        res.json({
+            dia: qDia.recordset[0].total,
+            semana: qSemana.recordset[0].total,
+            mes: qMes.recordset[0].total
+        });
+    } catch (err) { res.status(500).send(err.message); }
+});
+
+app.get('/api/dashboard/top-productos', async (req, res) => {
+    try {
+        let pool = await poolPromise;
+        let result = await pool.request().query(`
+            SELECT TOP 5 p.nombre, SUM(vd.cantidad) as total_vendido 
+            FROM Ventas_Detalle vd 
+            JOIN Ventas v ON vd.venta_id = v.id 
+            JOIN Productos p ON vd.producto_id = p.id 
+            WHERE v.activo = 1 AND MONTH(v.fecha) = MONTH(GETDATE()) AND YEAR(v.fecha) = YEAR(GETDATE())
+            GROUP BY p.nombre 
+            ORDER BY total_vendido DESC
+        `);
+        res.json(result.recordset);
+    } catch (err) { res.status(500).send(err.message); }
+});
+
+app.get('/api/dashboard/ventas-mes', async (req, res) => {
+    try {
+        let pool = await poolPromise;
+        // Suma las ventas día por día para el gráfico de líneas
+        let result = await pool.request().query(`
+            SELECT FORMAT(fecha, 'dd-MM') as dia, SUM(total) as total_dia 
+            FROM Ventas 
+            WHERE activo = 1 AND MONTH(fecha) = MONTH(GETDATE()) AND YEAR(fecha) = YEAR(GETDATE())
+            GROUP BY FORMAT(fecha, 'dd-MM'), CAST(fecha as DATE)
+            ORDER BY CAST(fecha as DATE)
+        `);
+        res.json(result.recordset);
+    } catch (err) { res.status(500).send(err.message); }
+});
+
+// --- 10. INICIAR SERVIDOR ---
 app.listen(3000, () => {
     console.log('Servidor corriendo en el puerto 3000');
 });
