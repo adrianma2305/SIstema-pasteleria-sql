@@ -260,7 +260,7 @@ window.iniciarRecuperacion = async function() {
   const idAdmin = document.getElementById("login-usuario").value;
   if (!idAdmin) return mostrarErrorLogin("Primero selecciona tu usuario en la lista para recuperar la contraseña.");
 
-  const pinMaestro = prompt("🔑 SOPORTE TECNOAYUDA:\nIngrese el PIN Maestro de Recuperación:");
+  const pinMaestro = prompt("🔑 SOPORTE:\nIngrese el PIN Maestro de Recuperación:");
   if (pinMaestro !== "UNI-2026") return alert("❌ PIN Maestro incorrecto. Acceso denegado.");
 
   const nuevaClave = prompt("✅ PIN Correcto.\nIngrese la NUEVA contraseña para este usuario:");
