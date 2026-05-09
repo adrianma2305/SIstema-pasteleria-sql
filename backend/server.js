@@ -1,29 +1,29 @@
 const express = require('express');
-const sql = require('mssql/msnodesqlv8'); 
+const sql = require('mssql'); 
 const cors = require('cors');
 
 const app = express();
 app.use(cors()); 
 app.use(express.json());
 
-// --- 1. CONFIGURACION DE BASE DE DATOS ---
+// --- 1. CONFIGURACION DE BASE DE DATOS (AZURE) ---
 const dbConfig = {
-    server: 'localhost', 
-    port: 1433,          
+    user: 'adminsory',
+    password: 'sep.23059', 
+    server: 'servidor-adrian.database.windows.net', 
     database: 'PasteleriaDB',
-    driver: 'SQL Server', 
     options: {
-        trustedConnection: true,
-        trustServerCertificate: true,
-        connectTimeout: 5000 
+        encrypt: true, 
+        trustServerCertificate: false,
+        connectTimeout: 30000 
     }
 };
 
 const poolPromise = sql.connect(dbConfig).then(pool => {
-    console.log("Conectado a SQL Server con Autenticación de Windows");
+    console.log("🚀 ¡Conectado a la nube de Azure SQL Database con éxito!");
     return pool;
 }).catch(err => {
-    console.log("Error al conectar BD: ", err.message);
+    console.log("❌ Error al conectar a la BD en Azure: ", err.message);
 });
 
 // --- 2. RUTAS DE EMPLEADOS ---
@@ -111,7 +111,6 @@ app.get('/api/ventas', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 4. OBTENER EL DETALLE DE UNA VENTA PARA EL RECIBO ---
 // --- 4. OBTENER EL DETALLE DE UNA VENTA PARA EL RECIBO ---
 app.get('/api/ventas/:id/detalles', async (req, res) => {
     try {
