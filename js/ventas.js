@@ -5,9 +5,7 @@ let factura = [];
 // 1. CARGAR PRODUCTOS EN LA CUADRÍCULA 
 async function cargarProductosParaVenta() {
   try {
-    const res = await fetch(`${API_URL_VENTAS}/productos`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    const res = await fetch(`${API_URL_VENTAS}/productos`);
     if (!res.ok) throw new Error("Error al cargar productos");
     const productos = await res.json();
     
@@ -105,9 +103,7 @@ async function obtenerOCrearCliente() {
   if (!nombre) return null;
 
   try {
-    const resBusq = await fetch(`${API_URL_VENTAS}/clientes?nombre=${encodeURIComponent(nombre)}`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    const resBusq = await fetch(`${API_URL_VENTAS}/clientes?nombre=${encodeURIComponent(nombre)}`);
     const encontrados = await resBusq.json();
 
     if (encontrados && encontrados.length > 0) {
@@ -116,7 +112,7 @@ async function obtenerOCrearCliente() {
 
     const resCrear = await fetch(`${API_URL_VENTAS}/clientes`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre, telefono })
     });
     
@@ -148,7 +144,7 @@ document.getElementById("btn-guardar-venta").onclick = async function () {
   try {
     const res = await fetch(`${API_URL_VENTAS}/ventas`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
           cliente_id: clienteId,
           empleado_id: empleadoId,
@@ -179,7 +175,7 @@ async function cargarVentas() {
   tabla.innerHTML = "<tr><td colspan='6' class='text-center'>Cargando historial...</td></tr>";
 
   try {
-    const res = await fetch(`${API_URL_VENTAS}/ventas`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+    const res = await fetch(`${API_URL_VENTAS}/ventas`);
     if (!res.ok) throw new Error("Error de red");
     const ventas = await res.json();
 
@@ -226,7 +222,7 @@ window.abrirRecibo = async function(id, fecha, cliente, empleado, total) {
 
   // Buscar los productos de esta venta en el backend
   try {
-    const res = await fetch(`${API_URL_VENTAS}/ventas/${id}/detalles`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+    const res = await fetch(`${API_URL_VENTAS}/ventas/${id}/detalles`);
     if (!res.ok) throw new Error("Error al cargar detalles");
     const detalles = await res.json();
 

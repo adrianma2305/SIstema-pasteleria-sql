@@ -4,9 +4,7 @@ let ventasCache = [];
 // --- CARGAR DATOS PARA REPORTES AVANZADOS ---
 async function actualizarCacheVentas() {
   try {
-    const res = await fetch(`${API_URL_DASH}/ventas`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    const res = await fetch(`${API_URL_DASH}/ventas`);
     if (res.ok) {
       ventasCache = await res.json();
     }
@@ -18,9 +16,7 @@ async function actualizarCacheVentas() {
 // --- ACTUALIZAR PANTALLA DEL DASHBOARD ---
 async function refrescarTotales() {
   try {
-    const res = await fetch(`${API_URL_DASH}/dashboard/resumen`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    const res = await fetch(`${API_URL_DASH}/dashboard/resumen`);
     if(!res.ok) throw new Error("Error en el resumen");
     const datos = await res.json();
 
@@ -38,9 +34,7 @@ let graficoTop = null;
 
 async function refrescarTopProductos() {
   try {
-    const res = await fetch(`${API_URL_DASH}/dashboard/top-productos`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    const res = await fetch(`${API_URL_DASH}/dashboard/top-productos`);
     const top = await res.json();
     
     const etiquetas = top.map((p) => p.nombre);
@@ -86,9 +80,7 @@ let graficoVentas = null;
 
 async function obtenerDatosVentasMes() {
     try {
-        const res = await fetch(`${API_URL_DASH}/dashboard/ventas-mes`, {
-            headers: { 'ngrok-skip-browser-warning': 'true' }
-        });
+        const res = await fetch(`${API_URL_DASH}/dashboard/ventas-mes`);
         return await res.json();
     } catch(e) {
         console.error("Error en gráfico", e);

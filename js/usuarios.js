@@ -13,9 +13,7 @@ async function inicializarSistemaConLogin() {
 
   if (idGuardado) {
     try {
-      const res = await fetch(`${API_URL_USUARIOS}/empleados/${idGuardado}`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
+      const res = await fetch(`${API_URL_USUARIOS}/empleados/${idGuardado}`);
       if (res.ok) {
         const data = await res.json();
         usuarioActual = data;
@@ -38,9 +36,7 @@ async function inicializarSistemaConLogin() {
   select.innerHTML = "<option value='' selected disabled>Selecciona tu usuario...</option>";
 
   try {
-    const resEmp = await fetch(`${API_URL_USUARIOS}/empleados`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    const resEmp = await fetch(`${API_URL_USUARIOS}/empleados`);
     if (resEmp.ok) {
       const empleados = await resEmp.json();
       empleados.forEach(emp => {
@@ -63,9 +59,7 @@ async function inicializarSistemaConLogin() {
     if (!idUsuario) return mostrarErrorLogin("Por favor selecciona un usuario.");
 
     try {
-      const res = await fetch(`${API_URL_USUARIOS}/empleados/${idUsuario}`, {
-          headers: { 'ngrok-skip-browser-warning': 'true' }
-      });
+      const res = await fetch(`${API_URL_USUARIOS}/empleados/${idUsuario}`);
       if (!res.ok) return mostrarErrorLogin("Error al verificar usuario.");
       
       const data = await res.json();
@@ -153,10 +147,7 @@ document.getElementById("form-agregar-usuario")?.addEventListener("submit", asyn
   try {
     const respuesta = await fetch(`${API_URL_USUARIOS}/empleados`, {
       method: 'POST',
-      headers: { 
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre, cargo, contraseña: hash })
     });
 
@@ -186,8 +177,7 @@ window.eliminarUsuario = async function(id) {
 
   try {
     const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, {
-      method: 'DELETE',
-      headers: { 'ngrok-skip-browser-warning': 'true' }
+      method: 'DELETE'
     });
 
     if (!res.ok) throw new Error("Error al eliminar");
@@ -205,7 +195,7 @@ window.cargarTablaUsuariosAdmin = async function() {
   tbody.innerHTML = "<tr><td colspan='4' class='text-center'>Cargando usuarios...</td></tr>";
 
   try {
-    const res = await fetch(`${API_URL_USUARIOS}/empleados`, { headers: { 'ngrok-skip-browser-warning': 'true' } });
+    const res = await fetch(`${API_URL_USUARIOS}/empleados`);
     if (!res.ok) throw new Error("Error de red");
     const empleados = await res.json();
     listaEmpleadosAdmin = empleados;
@@ -270,7 +260,7 @@ window.iniciarRecuperacion = async function() {
       const hashNuevo = await hashPassword(nuevaClave);
       const res = await fetch(`${API_URL_USUARIOS}/empleados/${idAdmin}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ password: hashNuevo, es_recuperacion: true })
       });
 

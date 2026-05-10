@@ -6,9 +6,7 @@ async function cargarProveedores() {
   tabla.innerHTML = "<tr><td colspan='5'>Cargando...</td></tr>";
   
   try {
-    const res = await fetch(`${API_URL_PROV}/proveedores`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    const res = await fetch(`${API_URL_PROV}/proveedores`);
     if (!res.ok) throw new Error("Error de red");
     const proveedores = await res.json();
     
@@ -69,7 +67,7 @@ async function agregarProveedor(event) {
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre, telefono, entrega })
     });
     if (!res.ok) throw new Error("Error al guardar");
@@ -85,8 +83,7 @@ async function eliminarProveedor(id) {
   if (!confirm("¿Estás seguro que quieres eliminar este proveedor?")) return;
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores/${id}`, { 
-        method: 'DELETE',
-        headers: { 'ngrok-skip-browser-warning': 'true' }
+        method: 'DELETE'
     });
     if (!res.ok) throw new Error("Error al eliminar");
     mostrarNotificacion({ titulo: "Eliminado", mensaje: "Proveedor eliminado correctamente.", tipo: "success" });
@@ -96,9 +93,7 @@ async function eliminarProveedor(id) {
 
 async function abrirEditarProveedor(id) {
   try {
-    const res = await fetch(`${API_URL_PROV}/proveedores/${id}`, {
-        headers: { 'ngrok-skip-browser-warning': 'true' }
-    });
+    const res = await fetch(`${API_URL_PROV}/proveedores/${id}`);
     if (!res.ok) throw new Error("Error al cargar");
     const data = await res.json();
 
@@ -124,7 +119,7 @@ async function actualizarProveedor(event) {
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre, telefono, entrega })
     });
 
