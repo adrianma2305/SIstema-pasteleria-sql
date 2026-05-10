@@ -1,4 +1,4 @@
-const API_URL_DASH = "https://sistema-pasteleria-sql.onrender.com";
+const API_URL_DASH = "https://sistema-pasteleria-sql.onrender.com/api";
 let ventasCache = []; 
 
 // --- CARGAR DATOS PARA REPORTES AVANZADOS ---

@@ -1,4 +1,4 @@
-const API_URL_VENTAS = "https://sistema-pasteleria-sql.onrender.com";
+const API_URL_VENTAS = "https://sistema-pasteleria-sql.onrender.com/api";
 let productosParaVenta = [];
 let factura = [];
 

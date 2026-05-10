@@ -1,4 +1,4 @@
-const API_URL_INS = "https://sistema-pasteleria-sql.onrender.com";
+const API_URL_INS = "https://sistema-pasteleria-sql.onrender.com/api";
 let insumosOriginal = [];
 let proveedoresMap = {}; 
 

@@ -1,4 +1,4 @@
-const API_URL = "https://sistema-pasteleria-sql.onrender.com";
+const API_URL = "https://sistema-pasteleria-sql.onrender.com/api";
 let productosOriginal = [];
 
 // --- CARGAR PRODUCTOS ---

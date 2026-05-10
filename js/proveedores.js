@@ -1,4 +1,4 @@
-const API_URL_PROV = "https://sistema-pasteleria-sql.onrender.com";
+const API_URL_PROV = "https://sistema-pasteleria-sql.onrender.com/api";
 let proveedoresOriginal = [];
 
 async function cargarProveedores() {
