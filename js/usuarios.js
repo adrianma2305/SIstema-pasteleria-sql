@@ -1,6 +1,6 @@
 let usuarioActual = null;
 const API_URL_USUARIOS = "https://sistema-pasteleria-sql.onrender.com/api";
-let listaEmpleadosAdmin = []; // Para el buscador
+let listaEmpleadosAdmin = []; 
 
 async function inicializarSistemaConLogin() {
   const mainContent = document.querySelector(".main-content");
@@ -22,6 +22,9 @@ async function inicializarSistemaConLogin() {
         
         if (mainContent) mainContent.style.display = "block";
         if (sidebar) sidebar.style.display = "block";
+        
+        // ¡SOLUCIÓN AL BUG! Dispara la carga del dashboard automáticamente
+        document.getElementById("btn-ir-inicio")?.click(); 
         return; 
       } else {
         localStorage.removeItem("usuario_id");
@@ -76,6 +79,10 @@ async function inicializarSistemaConLogin() {
         if (sidebar) sidebar.style.display = "block";
         
         aplicarPermisosInterfaz();
+        
+        // ¡SOLUCIÓN AL BUG! Dispara la carga al iniciar sesión
+        document.getElementById("btn-ir-inicio")?.click(); 
+
         mostrarNotificacion({titulo: "Bienvenido", mensaje: `Hola, ${data.nombre}`, tipo: "success"});
       } else {
         mostrarErrorLogin("Contraseña incorrecta.");
@@ -126,6 +133,7 @@ window.abrirModalUsuarios = function() {
   }
 };
 
+// --- AGREGAR USUARIO ---
 window.abrirModalAgregarUsuario = function () {
   const form = document.getElementById("form-agregar-usuario");
   if (form) form.reset();
@@ -133,7 +141,6 @@ window.abrirModalAgregarUsuario = function () {
   modal.show();
 };
 
-// --- CREAR NUEVO USUARIO ---
 document.getElementById("form-agregar-usuario")?.addEventListener("submit", async function (e) {
   e.preventDefault();
   const nombre = document.getElementById("nombre-usuario").value.trim();
@@ -141,7 +148,6 @@ document.getElementById("form-agregar-usuario")?.addEventListener("submit", asyn
   const contrasea = document.getElementById("contrasea-usuario").value.trim();
 
   if (!nombre || !cargo || !contrasea) return;
-
   const hash = await hashPassword(contrasea);
   
   try {
@@ -152,40 +158,71 @@ document.getElementById("form-agregar-usuario")?.addEventListener("submit", asyn
     });
 
     if (!respuesta.ok) throw new Error("Error al crear");
-
     mostrarNotificacion({titulo: "Usuario Creado", mensaje: "El usuario ha sido registrado.", tipo: "success"});
-    const modalEl = document.getElementById("modalAgregarUsuario");
-    const modal = bootstrap.Modal.getInstance(modalEl);
-    if (modal) modal.hide();
-    
-    // Si estamos en la pestaña de admin, recargar la tabla
-    if (document.getElementById("seccion-usuarios").style.display === "block") {
+    bootstrap.Modal.getInstance(document.getElementById("modalAgregarUsuario")).hide();
+    if (document.getElementById("seccion-usuarios").style.display === "block") cargarTablaUsuariosAdmin();
+  } catch (error) { mostrarNotificacion({titulo: "Error", mensaje: "No se pudo crear el usuario", tipo: "error"}); }
+});
+
+// --- EDITAR USUARIO (NUEVO) ---
+window.abrirEditarUsuario = function(id) {
+  const emp = listaEmpleadosAdmin.find(u => u.id === id);
+  if(!emp) return;
+  
+  document.getElementById("edit-id-usuario").value = emp.id;
+  document.getElementById("edit-nombre-usuario").value = emp.nombre;
+  document.getElementById("edit-cargo-usuario").value = emp.cargo || '';
+  document.getElementById("edit-contrasea-usuario").value = ''; // Queda en blanco por defecto
+  
+  const modal = new bootstrap.Modal(document.getElementById("modalEditarUsuario"));
+  modal.show();
+};
+
+document.getElementById("form-editar-usuario")?.addEventListener("submit", async function(e) {
+  e.preventDefault();
+  const id = document.getElementById("edit-id-usuario").value;
+  const nombre = document.getElementById("edit-nombre-usuario").value.trim();
+  const cargo = document.getElementById("edit-cargo-usuario").value.trim();
+  const passRaw = document.getElementById("edit-contrasea-usuario").value.trim();
+
+  const bodyData = { nombre, cargo };
+  // Si escribió algo en contraseña, la hasheamos y la mandamos
+  if (passRaw) bodyData.password = await hashPassword(passRaw);
+
+  try {
+      const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyData)
+      });
+      if(!res.ok) throw new Error("Error al editar");
+      
+      mostrarNotificacion({titulo: "Actualizado", mensaje: "Datos del usuario guardados.", tipo: "success"});
+      bootstrap.Modal.getInstance(document.getElementById("modalEditarUsuario")).hide();
+      
+      // Actualizamos header si el que se editó fue el usuario actual
+      if (usuarioActual && usuarioActual.id == id) {
+          usuarioActual.nombre = nombre;
+          usuarioActual.cargo = cargo;
+          actualizarHeaderUsuario(usuarioActual);
+      }
       cargarTablaUsuariosAdmin();
-    }
-  } catch (error) {
-    mostrarNotificacion({titulo: "Error", mensaje: "No se pudo crear el usuario", tipo: "error"});
+  } catch(error) {
+      mostrarNotificacion({titulo: "Error", mensaje: "No se pudo actualizar.", tipo: "error"});
   }
 });
 
-// --- ELIMINAR USUARIO (Solo Admin) ---
+// --- ELIMINAR USUARIO ---
 window.eliminarUsuario = async function(id) {
-  if (usuarioActual.id === id) {
-    return alert("No puedes eliminar tu propio usuario mientras tienes la sesión iniciada.");
-  }
-
+  if (usuarioActual.id === id) return alert("No puedes eliminar tu propio usuario mientras tienes la sesión iniciada.");
   if (!confirm("⚠️ ¿Peligro: Estás seguro que quieres eliminar este usuario permanentemente?")) return;
 
   try {
-    const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, {
-      method: 'DELETE'
-    });
-
+    const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error("Error al eliminar");
     mostrarNotificacion({titulo: "Usuario Eliminado", mensaje: "Se ha borrado el acceso al sistema.", tipo: "success"});
     cargarTablaUsuariosAdmin();
-  } catch (error) {
-    mostrarNotificacion({titulo: "Error", mensaje: "No se pudo eliminar el usuario.", tipo: "error"});
-  }
+  } catch (error) { mostrarNotificacion({titulo: "Error", mensaje: "No se pudo eliminar el usuario.", tipo: "error"}); }
 };
 
 // --- CARGAR TABLA DE ADMINISTRACIÓN ---
@@ -200,9 +237,7 @@ window.cargarTablaUsuariosAdmin = async function() {
     const empleados = await res.json();
     listaEmpleadosAdmin = empleados;
     renderizarTablaUsuarios(empleados);
-  } catch (error) {
-    tbody.innerHTML = "<tr><td colspan='4' class='text-center text-danger'>Error al cargar los usuarios.</td></tr>";
-  }
+  } catch (error) { tbody.innerHTML = "<tr><td colspan='4' class='text-center text-danger'>Error al cargar los usuarios.</td></tr>"; }
 };
 
 function renderizarTablaUsuarios(empleados) {
@@ -210,15 +245,15 @@ function renderizarTablaUsuarios(empleados) {
   tbody.innerHTML = "";
   
   empleados.forEach(emp => {
-    // Insignia visual para roles
-    let badgeRole = emp.cargo.toLowerCase().includes('admin') 
-      ? `<span class="badge bg-danger">${emp.cargo}</span>` 
-      : `<span class="badge bg-secondary">${emp.cargo}</span>`;
+    let badgeRole = emp.cargo.toLowerCase().includes('admin') ? `<span class="badge bg-danger">${emp.cargo}</span>` : `<span class="badge bg-secondary">${emp.cargo}</span>`;
 
-    // Botón de eliminar (deshabilitado para el usuario actual)
-    let btnEliminar = emp.id === usuarioActual.id 
-      ? `<button class="btn btn-sm btn-outline-secondary" disabled title="Tú"><i class="bi bi-person-fill"></i></button>`
-      : `<button class="btn btn-sm btn-danger" onclick="eliminarUsuario(${emp.id})" title="Eliminar Acceso"><i class="bi bi-trash"></i></button>`;
+    // Botones (Editar siempre activo, Eliminar deshabilitado para uno mismo)
+    let botones = `<button class="btn btn-sm btn-info me-1 text-white" onclick="abrirEditarUsuario(${emp.id})" title="Editar"><i class="bi bi-pencil"></i></button>`;
+    if (emp.id === usuarioActual.id) {
+        botones += `<button class="btn btn-sm btn-outline-secondary" disabled title="Tú"><i class="bi bi-person-fill"></i></button>`;
+    } else {
+        botones += `<button class="btn btn-sm btn-danger" onclick="eliminarUsuario(${emp.id})" title="Eliminar Acceso"><i class="bi bi-trash"></i></button>`;
+    }
 
     tbody.insertAdjacentHTML("beforeend", `
       <tr>
@@ -230,43 +265,35 @@ function renderizarTablaUsuarios(empleados) {
           </div>
         </td>
         <td>${badgeRole}</td>
-        <td class="text-center">${btnEliminar}</td>
+        <td class="text-center">${botones}</td>
       </tr>
     `);
   });
 }
 
-// Buscador de la tabla Admin
 document.getElementById("busqueda-usuarios-tabla")?.addEventListener("input", function(e) {
   const val = e.target.value.toLowerCase();
-  const filtrados = listaEmpleadosAdmin.filter(emp => 
-    emp.nombre.toLowerCase().includes(val) || emp.cargo.toLowerCase().includes(val)
-  );
+  const filtrados = listaEmpleadosAdmin.filter(emp => emp.nombre.toLowerCase().includes(val) || emp.cargo.toLowerCase().includes(val));
   renderizarTablaUsuarios(filtrados);
 });
 
-// --- SISTEMA DE RECUPERACIÓN SEGURO (Sin prompts expuestos) ---
+// --- RECUPERACIÓN DE CONTRASEÑA (PIN MAESTRO) ---
 window.iniciarRecuperacion = function() {
   const idUsuario = document.getElementById("login-usuario").value;
   if (!idUsuario) return mostrarErrorLogin("Selecciona tu usuario primero.");
-
-  // En lugar de prompt, abrimos el nuevo modal seguro
   const modalRecup = new bootstrap.Modal(document.getElementById("modalRecuperarPass"));
   modalRecup.show();
 };
 
 document.getElementById("form-recuperar-pass")?.addEventListener("submit", async function(e) {
   e.preventDefault();
-  
   const idAdmin = document.getElementById("login-usuario").value;
   const pinMaestro = document.getElementById("recup-pin-maestro").value;
   const nuevaClave = document.getElementById("recup-nueva-pass").value;
+  const confirmarClave = document.getElementById("recup-confirmar-pass").value;
 
-  // Validación del PIN Maestro
-  if (pinMaestro !== "UNI-2026") {
-    alert("❌ PIN Maestro incorrecto. Acceso denegado.");
-    return;
-  }
+  if (nuevaClave !== confirmarClave) return alert("❌ Las contraseñas no coinciden. Por favor, verifica lo que escribiste.");
+  if (pinMaestro !== "UNI-2026") return alert("❌ PIN Maestro incorrecto. Acceso denegado.");
 
   try {
     const hashNuevo = await hashPassword(nuevaClave);
@@ -281,57 +308,42 @@ document.getElementById("form-recuperar-pass")?.addEventListener("submit", async
       bootstrap.Modal.getInstance(document.getElementById("modalRecuperarPass")).hide();
       document.getElementById("form-recuperar-pass").reset();
       document.getElementById("login-password").value = ""; 
-    } else {
-      alert("Error al actualizar en la base de datos.");
-    }
-  } catch (error) {
-    console.error(error);
-    alert("Error de conexión al intentar recuperar.");
-  }
+    } else alert("Error al actualizar en la base de datos.");
+  } catch (error) { alert("Error de conexión al intentar recuperar."); }
 });
-
 
 // --- PERMISOS ---
 function esAdmin() {
   if (!usuarioActual) return false;
-  const cargo = usuarioActual.cargo.toLowerCase().trim();
-  return cargo.includes("admin"); 
+  return usuarioActual.cargo.toLowerCase().trim().includes("admin"); 
 }
 
 function aplicarPermisosInterfaz() {
-  const btnReporte = document.getElementById("btn-accion-reporte");
-  const navInicio = document.getElementById("btn-ir-inicio");
-  const navProductos = document.getElementById("btn-ir-productos");
-  const navProveedores = document.getElementById("btn-ir-proveedores");
-  const navUsuarios = document.getElementById("nav-item-usuarios"); // Pestaña de usuarios
-  const btnAgregarProd = document.querySelector("#seccion-productos .agregarprod");
-  const btnAgregarProv = document.querySelector("#seccion-proveedores .agregarprod");
+  const elementos = {
+    reporte: document.getElementById("btn-accion-reporte"),
+    inicio: document.getElementById("btn-ir-inicio")?.parentElement,
+    productos: document.getElementById("btn-ir-productos")?.parentElement,
+    proveedores: document.getElementById("btn-ir-proveedores")?.parentElement,
+    usuarios: document.getElementById("nav-item-usuarios"),
+    addProd: document.querySelector("#seccion-productos .agregarprod"),
+    addProv: document.querySelector("#seccion-proveedores .agregarprod")
+  };
 
-  if (esAdmin()) {
-    if(btnReporte) btnReporte.style.display = "block";
-    if(navInicio) navInicio.parentElement.style.display = "block";
-    if(navProductos) navProductos.parentElement.style.display = "block";
-    if(navProveedores) navProveedores.parentElement.style.display = "block";
-    if(navUsuarios) navUsuarios.style.display = "block"; // Mostrar al Admin
-    if(btnAgregarProd) btnAgregarProd.style.display = "inline-block";
-    if(btnAgregarProv) btnAgregarProv.style.display = "inline-block";
-  } else {
-    if(btnReporte) btnReporte.style.display = "none";
-    if(navInicio) navInicio.parentElement.style.display = "none";
-    if(navProductos) navProductos.parentElement.style.display = "none";
-    if(navProveedores) navProveedores.parentElement.style.display = "none";
-    if(navUsuarios) navUsuarios.style.display = "none"; // Ocultar al vendedor
-    if(btnAgregarProd) btnAgregarProd.style.display = "none";
-    if(btnAgregarProv) btnAgregarProv.style.display = "none";
+  const mostrar = esAdmin() ? "block" : "none";
+  const mostrarInline = esAdmin() ? "inline-block" : "none";
 
-    const btnVentas = document.getElementById("btn-ir-ventas");
-    if(btnVentas) {
-        btnVentas.click();
-        document.getElementById("seccion-dashboard").style.display = "none";
-    }
+  if(elementos.reporte) elementos.reporte.style.display = mostrar;
+  if(elementos.inicio) elementos.inicio.style.display = mostrar;
+  if(elementos.productos) elementos.productos.style.display = mostrar;
+  if(elementos.proveedores) elementos.proveedores.style.display = mostrar;
+  if(elementos.usuarios) elementos.usuarios.style.display = mostrar;
+  if(elementos.addProd) elementos.addProd.style.display = mostrarInline;
+  if(elementos.addProv) elementos.addProv.style.display = mostrarInline;
+
+  if (!esAdmin() && document.getElementById("btn-ir-ventas")) {
+    document.getElementById("btn-ir-ventas").click();
+    document.getElementById("seccion-dashboard").style.display = "none";
   }
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  inicializarSistemaConLogin();
-});
+document.addEventListener("DOMContentLoaded", () => inicializarSistemaConLogin());

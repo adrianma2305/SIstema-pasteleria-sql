@@ -45,27 +45,42 @@ app.get('/api/empleados/:id', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- ACTUALIZAR CONTRASEÑA (RECUPERACIÓN) ---
+// --- ACTUALIZAR EMPLEADO (RECUPERACIÓN O EDICIÓN NORMAL) ---
 app.put('/api/empleados/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { password, es_recuperacion } = req.body;
-
-        if (!es_recuperacion || !password) {
-            return res.status(400).send("Faltan datos para la recuperación");
-        }
+        const { nombre, cargo, password, es_recuperacion } = req.body;
 
         let pool = await poolPromise;
-        let result = await pool.request()
-            .input('id', sql.Int, id)
-            .input('pass', sql.VarChar, password)
-            .query('UPDATE Empleados SET contraseña = @pass WHERE id = @id');
 
-        if (result.rowsAffected[0] === 0) {
-            return res.status(404).send("Empleado no encontrado");
+        // Si es una recuperación de emergencia usando el PIN Maestro
+        if (es_recuperacion) {
+            if (!password) return res.status(400).send("Faltan datos para la recuperación");
+            let result = await pool.request()
+                .input('id', sql.Int, id)
+                .input('pass', sql.VarChar, password)
+                .query('UPDATE Empleados SET contraseña = @pass WHERE id = @id');
+
+            if (result.rowsAffected[0] === 0) return res.status(404).send("Empleado no encontrado");
+            return res.json({ success: true, message: "Contraseña actualizada correctamente" });
+        } 
+        // Si es una edición normal de usuario desde el panel
+        else {
+            let query = 'UPDATE Empleados SET nombre = @nombre, cargo = @cargo';
+            if (password) query += ', contraseña = @pass'; // Solo actualiza clave si se escribió una nueva
+            query += ' WHERE id = @id';
+
+            let peticion = pool.request()
+                .input('id', sql.Int, id)
+                .input('nombre', sql.VarChar, nombre)
+                .input('cargo', sql.VarChar, cargo);
+            
+            if (password) peticion.input('pass', sql.VarChar, password);
+
+            let result = await peticion.query(query);
+            if (result.rowsAffected[0] === 0) return res.status(404).send("Empleado no encontrado");
+            return res.json({ success: true, message: "Usuario actualizado correctamente" });
         }
-
-        res.json({ success: true, message: "Contraseña actualizada correctamente" });
     } catch (err) {
         res.status(500).send(err.message);
     }

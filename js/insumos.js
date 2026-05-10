@@ -146,3 +146,4 @@ document.getElementById("busqueda-insumos").addEventListener("input", filtrarIns
 document.getElementById("form-agregar-insumo").addEventListener("submit", agregarInsumo);
 document.getElementById("form-editar-insumo").addEventListener("submit", actualizarInsumo);
 document.getElementById("modalAgregarInsumo").addEventListener("show.bs.modal", () => cargarProveedoresSelect("proveedor-insumo"));
+document.addEventListener("DOMContentLoaded", cargarInsumos);

@@ -843,8 +843,42 @@
                 <label class="form-label">Nueva Contraseña</label>
                 <input type="password" id="recup-nueva-pass" class="form-control" placeholder="Nueva clave" required>
               </div>
+              <div class="mb-3">
+                <label class="form-label">Confirmar Contraseña</label>
+                <input type="password" id="recup-confirmar-pass" class="form-control" placeholder="Repite la nueva clave" required>
+              </div>
               <div class="d-grid">
                 <button type="submit" class="btn btn-dark fw-bold">Actualizar Credenciales</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal fade" id="modalEditarUsuario" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg">
+          <div class="modal-header bg-info text-white">
+            <h5 class="modal-title">Editar Usuario</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="form-editar-usuario">
+              <input type="hidden" id="edit-id-usuario" />
+              <div class="mb-3">
+                <label for="edit-nombre-usuario" class="form-label">Nombre del usuario</label>
+                <input type="text" id="edit-nombre-usuario" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label for="edit-cargo-usuario" class="form-label">Cargo / Rol</label>
+                <input type="text" id="edit-cargo-usuario" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label for="edit-contrasea-usuario" class="form-label">Nueva Contraseña <small class="text-muted">(Opcional)</small></label>
+                <input type="password" id="edit-contrasea-usuario" class="form-control" placeholder="Dejar en blanco para no cambiarla">
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-info text-white fw-bold">Guardar Cambios</button>
               </div>
             </form>
           </div>

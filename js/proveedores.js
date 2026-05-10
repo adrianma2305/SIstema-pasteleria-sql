@@ -137,6 +137,9 @@ function filtrarProveedores() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  
+  cargarProveedores(); 
+
   const formAgregar = document.getElementById("form-agregar-proveedor");
   if (formAgregar) formAgregar.addEventListener("submit", agregarProveedor);
 
@@ -145,4 +148,4 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const busqueda = document.getElementById("busqueda-proveedores");
   if (busqueda) busqueda.addEventListener("input", filtrarProveedores);
-});
+  });
