@@ -17,7 +17,6 @@ function renderizarGridVentas(productos) {
   grid.innerHTML = "";
   
   productos.forEach(p => {
-    // FASE 4: LÓGICA DE AGOTADOS
     const agotado = p.stock <= 0;
     const cardClass = agotado ? "bg-light text-muted border-danger" : "border-primary cursor-pointer";
     const opacity = agotado ? "opacity-50" : "";
@@ -44,7 +43,6 @@ window.agregarAlCarrito = function(idProd) {
 
   const itemExistente = carritoActual.find(i => i.producto_id === idProd);
   
-  // FASE 4: Evitar que metan al carrito más de lo que hay horneado
   if (itemExistente) {
     if (itemExistente.cantidad >= prod.stock) {
       return alert(`¡Hey! Solo tienes ${prod.stock} unidades de ${prod.nombre} horneadas en la vitrina.`);
@@ -132,17 +130,12 @@ document.getElementById("btn-guardar-venta").addEventListener("click", async () 
     const dataVenta = await resVenta.json();
 
     alert("✅ Venta registrada con éxito.");
-    
-    // Mostramos el recibo automáticamente
     abrirRecibo(dataVenta.id, nombreCliente || "Consumidor Final", empleado_id, carritoActual, totalVenta);
 
-    // Limpiar carrito
     carritoActual = [];
     document.getElementById("cliente-nombre").value = "";
     document.getElementById("cliente-telefono").value = "";
     actualizarUIFactura();
-    
-    // Recargar productos para que el stock baje visualmente
     cargarCatVentas(); 
 
   } catch (error) {
@@ -184,6 +177,7 @@ window.verDetalleVenta = async function(idVenta, cliente, fecha, empleado, total
   } catch (error) { alert("Error al cargar los detalles del ticket."); }
 };
 
+// --- EL RECIBO SIN PUNTOS SUSPENSIVOS ---
 function abrirRecibo(id, cliente, empleado, detalles, total, fechaStr = null) {
   document.getElementById("recibo-id").innerText = id;
   document.getElementById("recibo-fecha").innerText = fechaStr || new Date().toLocaleString();
@@ -194,13 +188,16 @@ function abrirRecibo(id, cliente, empleado, detalles, total, fechaStr = null) {
   const tbody = document.getElementById("recibo-detalles");
   tbody.innerHTML = "";
   detalles.forEach(d => {
-    // Si viene del carrito se llama precio_unitario, si viene del historial ya trae subtotal
     const precio = d.precio_unitario ? (d.subtotal / d.cantidad) : (d.subtotal / d.cantidad);
+    
+    // Le quitamos el truncado al diseño de la fila para que baje el texto largo
     tbody.insertAdjacentHTML('beforeend', `
       <tr>
-        <td class="text-start pb-1">${d.cantidad}</td>
-        <td class="text-start pb-1 text-truncate" style="max-width: 150px;">${d.nombre} <br><small class="text-muted">C$ ${precio}</small></td>
-        <td class="text-end pb-1">C$ ${d.subtotal}</td>
+        <td class="text-start pb-2 align-top">${d.cantidad}</td>
+        <td class="text-start pb-2" style="word-break: break-word; white-space: normal;">
+            ${d.nombre} <br><small class="text-muted">C$ ${precio}</small>
+        </td>
+        <td class="text-end pb-2 align-top">C$ ${d.subtotal}</td>
       </tr>
     `);
   });
@@ -213,7 +210,6 @@ document.getElementById("busqueda-venta-productos")?.addEventListener("input", f
   renderizarGridVentas(productosVenta.filter(p => p.nombre.toLowerCase().includes(val)));
 });
 
-// Actualizamos el dashboard automáticamente al entrar
 document.getElementById("btn-ir-ventas")?.addEventListener("click", () => {
     cargarCatVentas();
 });

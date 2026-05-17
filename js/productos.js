@@ -23,7 +23,13 @@ function renderizarProductos(productos) {
   const isAdmin = (typeof esAdmin === 'function') ? esAdmin() : false;
 
   productos.forEach((p) => {
-    const botonesAccion = isAdmin ? `<button class="btn btn-sm btn-primary me-1" onclick="verRecetaModal(${p.id}, '${p.nombre}')" title="Ver Fórmula"><i class="bi bi-journal-text"></i></button><button class="btn btn-sm btn-danger" onclick="eliminarProducto(${p.id})" title="Eliminar"><i class="bi bi-trash"></i></button>` : `<span class="badge bg-secondary">Solo lectura</span>`;
+    // AQUI AGREGAMOS EL BOTON DE EDITAR (AZUL CELESTE)
+    const botonesAccion = isAdmin ? `
+      <button class="btn btn-sm btn-primary me-1" onclick="verRecetaModal(${p.id}, '${p.nombre}')" title="Ver Fórmula"><i class="bi bi-journal-text"></i></button>
+      <button class="btn btn-sm btn-info text-white me-1" onclick="abrirEditarProducto(${p.id})" title="Editar Info Básica"><i class="bi bi-pencil"></i></button>
+      <button class="btn btn-sm btn-danger" onclick="eliminarProducto(${p.id})" title="Eliminar"><i class="bi bi-trash"></i></button>
+    ` : `<span class="badge bg-secondary">Solo lectura</span>`;
+    
     const costoFabricacion = p.costo || 0;
     const gananciaNeta = p.precio - costoFabricacion;
     
@@ -34,7 +40,6 @@ function renderizarProductos(productos) {
       infoFinanciera += `<br><small class="text-muted text-xs">Costo Unitario: C$ ${costoFabricacion.toFixed(0)}</small>`;
     } else { infoFinanciera += `<small class="text-warning">Sin Receta (100% Margen)</small>`; }
 
-    // FASE 4: MOSTRAR EL STOCK EN LA VITRINA
     const badgeStock = p.stock > 0 ? `<span class="badge bg-success ms-2">${p.stock} en vitrina</span>` : `<span class="badge bg-danger ms-2">Agotado</span>`;
 
     const fila = `
@@ -50,7 +55,42 @@ function renderizarProductos(productos) {
   });
 }
 
-// ... EL RESTO DEL CÓDIGO (Recetas, Agregar, Hornear) QUEDA EXACTAMENTE IGUAL ...
+// --- FUNCIÓN NUEVA: EDITAR PRODUCTO (NOMBRE, PRECIO, CATEGORÍA) ---
+window.abrirEditarProducto = function(id) {
+  const prod = productosOriginal.find(p => p.id === id);
+  if(!prod) return;
+  document.getElementById("edit-id").value = prod.id;
+  document.getElementById("edit-nombre").value = prod.nombre;
+  document.getElementById("edit-precio").value = prod.precio;
+  
+  // Rellenamos el select del modal de edición
+  const selectCategoria = document.getElementById("edit-categoria-principal");
+  selectCategoria.innerHTML = document.getElementById("categoria-principal").innerHTML;
+  selectCategoria.value = prod.categoria_id || "";
+  
+  new bootstrap.Modal(document.getElementById("modalEditar")).show();
+};
+
+document.getElementById("form-editar").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const id = document.getElementById("edit-id").value;
+  const nombre = document.getElementById("edit-nombre").value.trim();
+  const precio = parseInt(document.getElementById("edit-precio").value, 10);
+  const categoria_id = document.getElementById("edit-categoria-principal").value ? parseInt(document.getElementById("edit-categoria-principal").value) : null;
+
+  try {
+    const res = await fetch(`${API_URL}/productos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, precio, categoria_id }) // Ojo: Enviamos sin receta para que no la borre
+    });
+    if(!res.ok) throw new Error();
+    bootstrap.Modal.getInstance(document.getElementById("modalEditar")).hide();
+    cargarProductos();
+  } catch (error) { alert("Error al actualizar el producto"); }
+});
+
+// --- RESTO DE FUNCIONES MANTENIDAS INTACTAS ---
 async function cargarSelectInsumosReceta() { try { const respuesta = await fetch(`${API_URL}/insumos`); insumosAlmacenados = await respuesta.json(); const select = document.getElementById("insumo-receta-select"); if(select) { select.innerHTML = '<option value="" disabled selected>Selecciona ingrediente...</option>'; insumosAlmacenados.forEach(i => { select.innerHTML += `<option value="${i.id}">${i.nombre} (${i.unidad})</option>`; }); } } catch (error) {} }
 function limpiarRecetaTemporal() { recetaTemporal = []; document.getElementById("receta-rendimiento-lote").value = "1"; renderizarTablaRecetaTemporal(); }
 function agregarIngredienteATemporal() { const select = document.getElementById("insumo-receta-select"); const cantInput = document.getElementById("insumo-receta-cantidad"); const rendimientoInput = document.getElementById("receta-rendimiento-lote"); const rendimientoLote = parseFloat(rendimientoInput.value) || 1; if(!select.value || !cantInput.value || parseFloat(cantInput.value) <= 0) return alert("Selecciona un ingrediente y digita una cantidad."); const insumoId = parseInt(select.value); const cantidadDigitada = parseFloat(cantInput.value); const cantidadUnitariaCalculada = cantidadDigitada / rendimientoLote; const insumoObj = insumosAlmacenados.find(i => i.id === insumoId); if(recetaTemporal.some(item => item.insumo_id === insumoId)) return alert("El ingrediente ya está en la lista."); const subtotalCostoUnitario = cantidadUnitariaCalculada * insumoObj.precio; recetaTemporal.push({ insumo_id: insumoId, nombre: insumoObj.nombre, cantidad_lote_visible: cantidadDigitada, cantidad_necesaria: cantidadUnitariaCalculada, subtotal: subtotalCostoUnitario }); cantInput.value = ""; renderizarTablaRecetaTemporal(); }
@@ -59,7 +99,7 @@ function renderizarTablaRecetaTemporal() { const tbody = document.getElementById
 async function verRecetaModal(id, nombreProducto) { document.getElementById("title-ver-receta").innerText = `Fórmula: ${nombreProducto}`; const tbody = document.getElementById("body-ver-receta"); tbody.innerHTML = "<tr><td colspan='3' class='text-center'>Consultando Azure SQL...</td></tr>"; new bootstrap.Modal(document.getElementById("modalVerReceta")).show(); try { const res = await fetch(`${API_URL}/productos/${id}/receta`); const datos = await res.json(); tbody.innerHTML = ""; if(datos.length === 0) return tbody.innerHTML = "<tr><td colspan='3' class='text-center text-muted'>Sin ingredientes.</td></tr>"; datos.forEach(d => { tbody.insertAdjacentHTML("beforeend", `<tr><td class="fw-bold">${d.nombre_insumo}</td><td>${parseFloat(d.cantidad_necesaria).toFixed(4)} (${d.unidad})</td><td class="text-primary fw-bold">C$ ${Math.ceil(d.subtotal_costo)}</td></tr>`); }); } catch (error) { tbody.innerHTML = "<tr><td colspan='3' class='text-center text-danger'>Error.</td></tr>"; } }
 async function agregarProducto(event) { event.preventDefault(); const nombre = document.getElementById("nombre").value.trim(); const precio = parseInt(document.getElementById("precio").value, 10); const categoria_id = document.getElementById("categoria-principal").value ? parseInt(document.getElementById("categoria-principal").value) : null; if (!nombre || isNaN(precio) || precio <= 0 || !categoria_id) return alert("Campos obligatorios."); try { const respuesta = await fetch(`${API_URL}/productos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre, precio, categoria_id, receta: recetaTemporal }) }); if (!respuesta.ok) throw new Error("Error"); alert("🎉 Producto guardado en la nube."); document.getElementById("form-agregar").reset(); limpiarRecetaTemporal(); bootstrap.Modal.getInstance(document.getElementById("modalAgregar")).hide(); cargarProductos(); } catch (error) { alert("Error de comunicación."); } }
 function abrirModalProduccion() { const select = document.getElementById("prod-produccion"); if(!select) return; select.innerHTML = '<option value="" disabled selected>Selecciona producto horneado...</option>'; productosOriginal.forEach(p => { select.innerHTML += `<option value="${p.id}">${p.nombre}</option>`; }); new bootstrap.Modal(document.getElementById("modalProduccion")).show(); }
-async function ejecutarProduccion(event) { event.preventDefault(); const producto_id = parseInt(document.getElementById("prod-produccion").value); const cantidad_producida = parseInt(document.getElementById("cant-produccion").value, 10); const usuario_id = localStorage.getItem("usuario_id") ? parseInt(localStorage.getItem("usuario_id")) : null; if(!producto_id || isNaN(cantidad_producida) || cantidad_producida <= 0) return alert("Ingresa datos coherentes."); try { const respuesta = await fetch(`${API_URL}/produccion`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ producto_id, cantidad_producida, usuario_id }) }); if(!respuesta.ok) throw new Error(await respuesta.text()); alert(`💪 ¡Producción registrada! El stock subió en la vitrina.`); document.getElementById("form-produccion").reset(); bootstrap.Modal.getInstance(document.getElementById("modalProduccion")).hide(); cargarProductos(); } catch (error) { alert("Error: " + error.message); } }
+async function ejecutarProduccion(event) { event.preventDefault(); const producto_id = parseInt(document.getElementById("prod-produccion").value); const cantidad_producida = parseInt(document.getElementById("cant-produccion").value, 10); const usuario_id = localStorage.getItem("usuario_id") ? parseInt(localStorage.getItem("usuario_id")) : null; if(!producto_id || isNaN(cantidad_producida) || cantidad_producida <= 0) return alert("Ingresa datos coherentes."); try { const respuesta = await fetch(`${API_URL}/produccion`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ producto_id, cantidad_producida, usuario_id }) }); if(!respuesta.ok) throw new Error(await respuesta.text()); alert(`💪 ¡Producción registrada! El stock subió en la vitrina.`); document.getElementById("form-produccion").reset(); bootstrap.Modal.getInstance(document.getElementById("modalProduccion")).hide(); cargarProductos(); } catch (error) { alert(error.message); } }
 async function eliminarProducto(id) { if (!confirm("¿Deseas deshabilitar este producto?")) return; try { await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' }); cargarProductos(); } catch (error) {} }
 async function cargarSelectsCategorias() { try { const respuesta = await fetch(`${API_URL}/categorias`); const categorias = await respuesta.json(); const selectFiltro = document.getElementById("filtro-categoria"); const selectAgregar = document.getElementById("categoria-principal"); let htmlFiltro = '<option value="">Todas las categorías</option>'; let htmlModal = '<option value="">Seleccione una categoría...</option>'; categorias.forEach(c => { htmlFiltro += `<option value="${c.id}">${c.nombre}</option>`; htmlModal += `<option value="${c.id}">${c.nombre}</option>`; }); if (selectFiltro) selectFiltro.innerHTML = htmlFiltro; if (selectAgregar) selectAgregar.innerHTML = htmlModal; } catch (error) {} }
 function filtrarProductos() { const valor = document.getElementById("busqueda-productos").value.trim().toLowerCase(); const precioBuscado = document.getElementById("busqueda-precio").value; const categoriaBuscada = document.getElementById("filtro-categoria").value; let filtrados = productosOriginal.filter((p) => p.nombre.toLowerCase().includes(valor)); if (precioBuscado !== "") filtrados = filtrados.filter((p) => p.precio == parseInt(precioBuscado)); if (categoriaBuscada !== "") filtrados = filtrados.filter((p) => p.categoria_id == parseInt(categoriaBuscada)); renderizarProductos(filtrados); }
