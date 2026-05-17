@@ -45,29 +45,23 @@ app.get('/api/empleados/:id', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- ACTUALIZAR EMPLEADO (RECUPERACIÓN O EDICIÓN NORMAL) ---
 app.put('/api/empleados/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { nombre, cargo, password, es_recuperacion } = req.body;
-
         let pool = await poolPromise;
 
-        // Si es una recuperación de emergencia usando el PIN Maestro
         if (es_recuperacion) {
-            if (!password) return res.status(400).send("Faltan datos para la recuperación");
+            if (!password) return res.status(400).send("Faltan datos");
             let result = await pool.request()
                 .input('id', sql.Int, id)
                 .input('pass', sql.VarChar, password)
                 .query('UPDATE Empleados SET contraseña = @pass WHERE id = @id');
-
             if (result.rowsAffected[0] === 0) return res.status(404).send("Empleado no encontrado");
-            return res.json({ success: true, message: "Contraseña actualizada correctamente" });
-        } 
-        // Si es una edición normal de usuario desde el panel
-        else {
+            return res.json({ success: true, message: "Contraseña actualizada" });
+        } else {
             let query = 'UPDATE Empleados SET nombre = @nombre, cargo = @cargo';
-            if (password) query += ', contraseña = @pass'; // Solo actualiza clave si se escribió una nueva
+            if (password) query += ', contraseña = @pass';
             query += ' WHERE id = @id';
 
             let peticion = pool.request()
@@ -79,21 +73,15 @@ app.put('/api/empleados/:id', async (req, res) => {
 
             let result = await peticion.query(query);
             if (result.rowsAffected[0] === 0) return res.status(404).send("Empleado no encontrado");
-            return res.json({ success: true, message: "Usuario actualizado correctamente" });
+            return res.json({ success: true, message: "Usuario actualizado" });
         }
-    } catch (err) {
-        res.status(500).send(err.message);
-    }
+    } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- CREAR NUEVO EMPLEADO (USUARIO) ---
 app.post('/api/empleados', async (req, res) => {
     try {
         const { nombre, cargo, contraseña } = req.body;
-
-        if (!nombre || !cargo || !contraseña) {
-            return res.status(400).send("Faltan datos");
-        }
+        if (!nombre || !cargo || !contraseña) return res.status(400).send("Faltan datos");
 
         let pool = await poolPromise;
         await pool.request()
@@ -101,58 +89,20 @@ app.post('/api/empleados', async (req, res) => {
             .input('cargo', sql.VarChar, cargo)
             .input('pass', sql.VarChar, contraseña)
             .query('INSERT INTO Empleados (nombre, cargo, contraseña, activo) VALUES (@nombre, @cargo, @pass, 1)');
-
-        res.status(201).json({ success: true, message: "Empleado creado exitosamente" });
-    } catch (err) {
-        console.error("Error al crear empleado en SQL:", err.message);
-        res.status(500).send(err.message);
-    }
-});
-
-// --- 3. OBTENER EL RESUMEN DE VENTAS ---
-app.get('/api/ventas', async (req, res) => {
-    try {
-        let pool = await poolPromise;
-        let result = await pool.request().query(`
-            SELECT v.id, v.fecha, v.total, 
-                   ISNULL(c.nombre, 'Consumidor Final') as cliente, 
-                   ISNULL(e.nombre, 'Admin/Sistema') as empleado
-            FROM Ventas v
-            LEFT JOIN Clientes c ON v.cliente_id = c.id
-            LEFT JOIN Empleados e ON v.empleado_id = e.id
-            ORDER BY v.fecha DESC
-        `);
-        res.json(result.recordset);
+        res.status(201).json({ success: true });
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 4. OBTENER EL DETALLE DE UNA VENTA PARA EL RECIBO ---
-app.get('/api/ventas/:id/detalles', async (req, res) => {
+app.delete('/api/empleados/:id', async (req, res) => {
     try {
-        console.log("--> 🟢 Buscando detalles para la factura número:", req.params.id);
-        
+        const id = req.params.id;
         let pool = await poolPromise;
-        let result = await pool.request()
-            .input('id', sql.Int, req.params.id)
-            .query(`
-                SELECT dv.cantidad, p.nombre, dv.subtotal
-                FROM [Ventas_Detalle] dv
-                INNER JOIN [productos] p ON dv.producto_id = p.id
-                WHERE dv.venta_id = @id
-            `);
-            
-        console.log("--> ✅ Productos encontrados:", result.recordset.length);
-        res.json(result.recordset);
-    } catch (err) { 
-        console.log("\n=========================================");
-        console.error("🚨 ERROR FATAL EN LA BASE DE DATOS 🚨");
-        console.error("MOTIVO EXACTO:", err.message);
-        console.log("=========================================\n");
-        res.status(500).send(err.message); 
-    }
+        await pool.request().input('id', sql.Int, id).query('UPDATE empleados SET activo = 0 WHERE id = @id');
+        res.status(200).send('Empleado eliminado');
+    } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 5. RUTAS DE CATEGORIAS ---
+// --- 3. RUTAS DE CATEGORIAS ---
 app.get('/api/categorias', async (req, res) => {
     try {
         let pool = await poolPromise;
@@ -161,13 +111,14 @@ app.get('/api/categorias', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 6. RUTAS DE PRODUCTOS ---
+// --- 4. RUTAS DE PRODUCTOS ---
 app.get('/api/productos', async (req, res) => {
     try {
         let pool = await poolPromise;
         let result = await pool.request().query(`
             SELECT p.*, 
                    i.nombre as nombre_insumo,
+                   i.precio as precio_insumo,  -- AQUI ESTA LA MAGIA PARA LA GANANCIA
                    c.nombre as nombre_categoria
             FROM productos p 
             LEFT JOIN insumos i ON p.insumo_id = i.id
@@ -179,9 +130,10 @@ app.get('/api/productos', async (req, res) => {
             id: prod.id,
             nombre: prod.nombre,
             precio: prod.precio,
+            costo: prod.precio_insumo || 0,
             insumo_id: prod.insumo_id,
             categoria_id: prod.categoria_id,
-            insumo: prod.nombre_insumo ? { nombre: prod.nombre_insumo } : null,
+            insumo: prod.nombre_insumo ? { nombre: prod.nombre_insumo, precio: prod.precio_insumo } : null,
             categoria: prod.nombre_categoria ? { nombre: prod.nombre_categoria } : null
         }));
 
@@ -195,7 +147,7 @@ app.post('/api/productos', async (req, res) => {
         let pool = await poolPromise;
         await pool.request()
             .input('nombre', sql.VarChar, nombre)
-            .input('precio', sql.Decimal(10,2), precio)
+            .input('precio', sql.Int, precio) 
             .input('insumo_id', sql.Int, insumo_id || null)
             .input('categoria_id', sql.Int, categoria_id || null)
             .query('INSERT INTO productos (nombre, precio, insumo_id, categoria_id) VALUES (@nombre, @precio, @insumo_id, @categoria_id)');
@@ -222,7 +174,7 @@ app.put('/api/productos/:id', async (req, res) => {
         await pool.request()
             .input('id', sql.Int, id)
             .input('nombre', sql.VarChar, nombre)
-            .input('precio', sql.Decimal(10,2), precio)
+            .input('precio', sql.Int, precio)
             .input('insumo_id', sql.Int, insumo_id || null)
             .input('categoria_id', sql.Int, categoria_id || null)
             .query('UPDATE productos SET nombre = @nombre, precio = @precio, insumo_id = @insumo_id, categoria_id = @categoria_id, fecha_actualizacion = GETDATE() WHERE id = @id');
@@ -234,14 +186,12 @@ app.delete('/api/productos/:id', async (req, res) => {
     try {
         const id = req.params.id;
         let pool = await poolPromise;
-        await pool.request()
-            .input('id', sql.Int, id)
-            .query('UPDATE productos SET activo = 0 WHERE id = @id');
+        await pool.request().input('id', sql.Int, id).query('UPDATE productos SET activo = 0 WHERE id = @id');
         res.status(200).send('Producto eliminado lógicamente');
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 7. RUTAS DE PROVEEDORES ---
+// --- 5. RUTAS DE PROVEEDORES ---
 app.get('/api/proveedores', async (req, res) => {
     try {
         let pool = await poolPromise;
@@ -297,7 +247,7 @@ app.delete('/api/proveedores/:id', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 8. RUTAS DE INSUMOS ---
+// --- 6. RUTAS DE INSUMOS ---
 app.get('/api/insumos', async (req, res) => {
     try {
         let pool = await poolPromise;
@@ -317,7 +267,6 @@ app.get('/api/insumos', async (req, res) => {
             proveedor_id: ins.proveedor_id,
             proveedores: ins.nombre_proveedor ? { nombre: ins.nombre_proveedor } : null
         }));
-
         res.json(insumosFormateados);
     } catch (err) { res.status(500).send(err.message); }
 });
@@ -339,7 +288,7 @@ app.post('/api/insumos', async (req, res) => {
         await pool.request()
             .input('nombre', sql.VarChar, nombre)
             .input('unidad', sql.VarChar, unidad || null)
-            .input('precio', sql.Decimal(10,2), precio || null)
+            .input('precio', sql.Int, precio || null)
             .input('proveedor_id', sql.Int, proveedor_id || null)
             .query('INSERT INTO insumos (nombre, unidad, precio, proveedor_id) VALUES (@nombre, @unidad, @precio, @proveedor_id)');
         res.status(201).send('Insumo agregado');
@@ -355,7 +304,7 @@ app.put('/api/insumos/:id', async (req, res) => {
             .input('id', sql.Int, id)
             .input('nombre', sql.VarChar, nombre)
             .input('unidad', sql.VarChar, unidad || null)
-            .input('precio', sql.Decimal(10,2), precio || null)
+            .input('precio', sql.Int, precio || null)
             .input('proveedor_id', sql.Int, proveedor_id || null)
             .query('UPDATE insumos SET nombre = @nombre, unidad = @unidad, precio = @precio, proveedor_id = @proveedor_id, fecha_actualizacion = GETDATE() WHERE id = @id');
         res.status(200).send('Insumo actualizado');
@@ -371,12 +320,11 @@ app.delete('/api/insumos/:id', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 9. RUTAS DE CLIENTES ---
+// --- 7. RUTAS DE CLIENTES ---
 app.get('/api/clientes', async (req, res) => {
     try {
         let pool = await poolPromise;
         let nombre = req.query.nombre;
-        
         if(nombre) {
             let result = await pool.request()
                 .input('nombre', sql.VarChar, `%${nombre}%`)
@@ -397,12 +345,28 @@ app.post('/api/clientes', async (req, res) => {
             .input('nombre', sql.VarChar, nombre)
             .input('telefono', sql.VarChar, telefono || null)
             .query('INSERT INTO clientes (nombre, telefono) OUTPUT INSERTED.id VALUES (@nombre, @telefono)');
-        
         res.status(201).json({ id: result.recordset[0].id });
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 10. RUTAS DE VENTAS ---
+// --- 8. RUTAS DE VENTAS ---
+app.get('/api/ventas', async (req, res) => {
+    try {
+        let pool = await poolPromise;
+        let result = await pool.request().query(`
+            SELECT v.id, v.fecha, v.total, 
+                   ISNULL(c.nombre, 'Consumidor Final') as cliente, 
+                   ISNULL(e.nombre, 'Admin/Sistema') as empleado
+            FROM Ventas v
+            LEFT JOIN Clientes c ON v.cliente_id = c.id
+            LEFT JOIN Empleados e ON v.empleado_id = e.id
+            WHERE v.activo = 1
+            ORDER BY v.fecha DESC
+        `);
+        res.json(result.recordset);
+    } catch (err) { res.status(500).send(err.message); }
+});
+
 app.post('/api/ventas', async (req, res) => {
     let transaction;
     try {
@@ -416,7 +380,7 @@ app.post('/api/ventas', async (req, res) => {
         let resultCabecera = await requestCabecera
             .input('cliente_id', sql.Int, cliente_id || null)
             .input('empleado_id', sql.Int, empleado_id || null)
-            .input('total', sql.Decimal(10,2), total)
+            .input('total', sql.Int, total)
             .query('INSERT INTO Ventas (cliente_id, empleado_id, total) OUTPUT INSERTED.id VALUES (@cliente_id, @empleado_id, @total)');
         
         const nuevaVentaId = resultCabecera.recordset[0].id;
@@ -427,8 +391,8 @@ app.post('/api/ventas', async (req, res) => {
                 .input('venta_id', sql.Int, nuevaVentaId)
                 .input('producto_id', sql.Int, item.producto_id)
                 .input('cantidad', sql.Int, item.cantidad)
-                .input('precio_unitario', sql.Decimal(10,2), item.precio_unitario)
-                .input('subtotal', sql.Decimal(10,2), item.subtotal)
+                .input('precio_unitario', sql.Int, item.precio_unitario)
+                .input('subtotal', sql.Int, item.subtotal)
                 .query('INSERT INTO Ventas_Detalle (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (@venta_id, @producto_id, @cantidad, @precio_unitario, @subtotal)');
         }
 
@@ -441,7 +405,22 @@ app.post('/api/ventas', async (req, res) => {
     }
 });
 
-// --- 11. RUTAS DEL DASHBOARD ---
+app.get('/api/ventas/:id/detalles', async (req, res) => {
+    try {
+        let pool = await poolPromise;
+        let result = await pool.request()
+            .input('id', sql.Int, req.params.id)
+            .query(`
+                SELECT dv.cantidad, p.nombre, dv.subtotal
+                FROM [Ventas_Detalle] dv
+                INNER JOIN [productos] p ON dv.producto_id = p.id
+                WHERE dv.venta_id = @id
+            `);
+        res.json(result.recordset);
+    } catch (err) { res.status(500).send(err.message); }
+});
+
+// --- 9. RUTAS DEL DASHBOARD ---
 app.get('/api/dashboard/resumen', async (req, res) => {
     try {
         let pool = await poolPromise;
@@ -449,11 +428,7 @@ app.get('/api/dashboard/resumen', async (req, res) => {
         let qSemana = await pool.request().query(`SELECT ISNULL(SUM(total), 0) as total FROM Ventas WHERE fecha >= DATEADD(day, -7, GETDATE()) AND activo = 1`);
         let qMes = await pool.request().query(`SELECT ISNULL(SUM(total), 0) as total FROM Ventas WHERE MONTH(fecha) = MONTH(GETDATE()) AND YEAR(fecha) = YEAR(GETDATE()) AND activo = 1`);
 
-        res.json({
-            dia: qDia.recordset[0].total,
-            semana: qSemana.recordset[0].total,
-            mes: qMes.recordset[0].total
-        });
+        res.json({ dia: qDia.recordset[0].total, semana: qSemana.recordset[0].total, mes: qMes.recordset[0].total });
     } catch (err) { res.status(500).send(err.message); }
 });
 
@@ -487,7 +462,7 @@ app.get('/api/dashboard/ventas-mes', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- 12. INICIAR SERVIDOR ---
+// --- 10. INICIAR SERVIDOR ---
 app.listen(3000, () => {
     console.log('Servidor corriendo en el puerto 3000');
 });

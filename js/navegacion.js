@@ -1,11 +1,18 @@
 document.addEventListener("DOMContentLoaded", () => {
+<<<<<<< HEAD
   // 1. CAPTURAR BOTONES Y SECCIONES 
+=======
+>>>>>>> pruebas
   const botonesNav = {
     inicio: document.getElementById("btn-ir-inicio"),
     ventas: document.getElementById("btn-ir-ventas"),
     productos: document.getElementById("btn-ir-productos"),
     proveedores: document.getElementById("btn-ir-proveedores"),
+<<<<<<< HEAD
     usuarios: document.getElementById("btn-ir-usuarios") // NUEVO
+=======
+    usuarios: document.getElementById("btn-ir-usuarios")
+>>>>>>> pruebas
   };
 
   const secciones = {
@@ -13,25 +20,31 @@ document.addEventListener("DOMContentLoaded", () => {
     ventas: document.getElementById("seccion-ventas"),
     productos: document.getElementById("seccion-productos"),
     proveedores: document.getElementById("seccion-proveedores"),
+<<<<<<< HEAD
     usuarios: document.getElementById("seccion-usuarios") // NUEVO
+=======
+    usuarios: document.getElementById("seccion-usuarios")
+>>>>>>> pruebas
   };
 
-  // --- 2. FUNCIÓN PARA OCULTAR TODO ---
+  // --- FUNCIÓN PARA OCULTAR TODO Y QUITAR LA CLASE ACTIVE ---
   function ocultarTodasLasSecciones() {
     Object.values(secciones).forEach(seccion => {
       if (seccion) seccion.style.display = "none";
     });
-    Object.values(botonesNav).forEach(btn => {
-      if (btn) btn.classList.remove("active");
-    });
+    // Se asegura de quitar la clase active a todos los enlaces
+    document.querySelectorAll(".nav-links li a").forEach(a => a.classList.remove("active"));
   }
 
-  // --- 3. EVENTOS DE CLIC ---
   if (botonesNav.inicio) {
     botonesNav.inicio.addEventListener("click", async (e) => {
       e.preventDefault(); ocultarTodasLasSecciones();
       if (secciones.inicio) secciones.inicio.style.display = "block";
+<<<<<<< HEAD
       botonesNav.inicio.classList.add("active");
+=======
+      botonesNav.inicio.classList.add("active"); // Le pone la clase al clickear
+>>>>>>> pruebas
       if (typeof refrescarTotales === 'function') await refrescarTotales();
       if (typeof graficarSemana === 'function') graficarSemana();
       if (typeof refrescarTopProductos === 'function') refrescarTopProductos();
@@ -67,7 +80,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+<<<<<<< HEAD
   // NUEVO EVENTO PARA USUARIOS
+=======
+>>>>>>> pruebas
   if (botonesNav.usuarios) {
     botonesNav.usuarios.addEventListener("click", (e) => {
       e.preventDefault(); ocultarTodasLasSecciones();
