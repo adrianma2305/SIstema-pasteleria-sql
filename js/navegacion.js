@@ -1,38 +1,34 @@
 document.addEventListener("DOMContentLoaded", () => {
-  //  1. CAPTURAR BOTONES Y SECCIONES 
   const botonesNav = {
     inicio: document.getElementById("btn-ir-inicio"),
     ventas: document.getElementById("btn-ir-ventas"),
     productos: document.getElementById("btn-ir-productos"),
-    proveedores: document.getElementById("btn-ir-proveedores")
+    proveedores: document.getElementById("btn-ir-proveedores"),
+    usuarios: document.getElementById("btn-ir-usuarios")
   };
 
   const secciones = {
     inicio: document.getElementById("seccion-dashboard"),
     ventas: document.getElementById("seccion-ventas"),
     productos: document.getElementById("seccion-productos"),
-    proveedores: document.getElementById("seccion-proveedores")
+    proveedores: document.getElementById("seccion-proveedores"),
+    usuarios: document.getElementById("seccion-usuarios")
   };
 
-  // --- 2. FUNCIÓN PARA OCULTAR TODO ---
+  // --- FUNCIÓN PARA OCULTAR TODO Y QUITAR LA CLASE ACTIVE ---
   function ocultarTodasLasSecciones() {
     Object.values(secciones).forEach(seccion => {
       if (seccion) seccion.style.display = "none";
     });
-    Object.values(botonesNav).forEach(btn => {
-      if (btn) btn.classList.remove("active");
-    });
+    // Se asegura de quitar la clase active a todos los enlaces
+    document.querySelectorAll(".nav-links li a").forEach(a => a.classList.remove("active"));
   }
 
-  // --- 3. EVENTOS DE CLIC ---
   if (botonesNav.inicio) {
     botonesNav.inicio.addEventListener("click", async (e) => {
-      e.preventDefault();
-      ocultarTodasLasSecciones();
+      e.preventDefault(); ocultarTodasLasSecciones();
       if (secciones.inicio) secciones.inicio.style.display = "block";
-      botonesNav.inicio.classList.add("active");
-      
-      // Recargar gráficos al entrar
+      botonesNav.inicio.classList.add("active"); // Le pone la clase al clickear
       if (typeof refrescarTotales === 'function') await refrescarTotales();
       if (typeof graficarSemana === 'function') graficarSemana();
       if (typeof refrescarTopProductos === 'function') refrescarTopProductos();
@@ -41,12 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (botonesNav.ventas) {
     botonesNav.ventas.addEventListener("click", (e) => {
-      e.preventDefault();
-      ocultarTodasLasSecciones();
+      e.preventDefault(); ocultarTodasLasSecciones();
       if (secciones.ventas) secciones.ventas.style.display = "block";
       botonesNav.ventas.classList.add("active");
-      
-      // Cargar los productos para vender y la tabla del historial de ventas
       if (typeof iniciarPOSVenta === 'function') iniciarPOSVenta();
       if (typeof cargarVentas === 'function') cargarVentas(); 
     });
@@ -54,12 +47,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (botonesNav.productos) {
     botonesNav.productos.addEventListener("click", (e) => {
-      e.preventDefault();
-      ocultarTodasLasSecciones();
+      e.preventDefault(); ocultarTodasLasSecciones();
       if (secciones.productos) secciones.productos.style.display = "block";
       botonesNav.productos.classList.add("active");
-
-      // Cargar la tabla de productos y la de insumos
       if (typeof cargarProductos === 'function') cargarProductos();
       if (typeof cargarInsumos === 'function') cargarInsumos();
     });
@@ -67,13 +57,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (botonesNav.proveedores) {
     botonesNav.proveedores.addEventListener("click", (e) => {
-      e.preventDefault();
-      ocultarTodasLasSecciones();
+      e.preventDefault(); ocultarTodasLasSecciones();
       if (secciones.proveedores) secciones.proveedores.style.display = "block";
       botonesNav.proveedores.classList.add("active");
-
-      // Cargar la tabla de proveedores
       if (typeof cargarProveedores === 'function') cargarProveedores();
+    });
+  }
+
+  if (botonesNav.usuarios) {
+    botonesNav.usuarios.addEventListener("click", (e) => {
+      e.preventDefault(); ocultarTodasLasSecciones();
+      if (secciones.usuarios) secciones.usuarios.style.display = "block";
+      botonesNav.usuarios.classList.add("active");
+      if (typeof cargarTablaUsuariosAdmin === 'function') cargarTablaUsuariosAdmin();
     });
   }
 });
