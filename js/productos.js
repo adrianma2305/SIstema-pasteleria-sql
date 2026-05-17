@@ -2,16 +2,13 @@ const API_URL = "https://sistema-pasteleria-sql.onrender.com/api";
 let productosOriginal = [];
 let insumosPrecios = {}; 
 
-// --- CARGAR PRODUCTOS ---
 async function cargarProductos() {
   const tabla = document.querySelector("#productos-table tbody");
   tabla.innerHTML = "<tr><td colspan='5'>Cargando...</td></tr>";
-  
   try {
     const respuesta = await fetch(`${API_URL}/productos`);
     if (!respuesta.ok) throw new Error("Error al cargar productos");
     const productos = await respuesta.json();
-    
     productosOriginal = productos;
     renderizarProductos(productos);
     cargarSelectsInsumosProducto();
@@ -21,7 +18,6 @@ async function cargarProductos() {
   }
 }
 
-// --- RENDERIZAR LA TABLA CON GANANCIA ---
 function renderizarProductos(productos) {
   const tabla = document.querySelector("#productos-table tbody");
   tabla.innerHTML = "";
@@ -88,14 +84,14 @@ async function cargarSelectsInsumosProducto() {
   try {
     const respuesta = await fetch(`${API_URL}/insumos`);
     const insumos = await respuesta.json();
-    insumosPrecios = {}; // reset
+    insumosPrecios = {}; 
 
     const selectAgregar = document.getElementById("insumo-principal");
     const selectEditar = document.getElementById("edit-insumo-principal");
     let html = '<option value="">Ninguno / No aplica</option>';
 
     insumos.forEach(i => {
-      html += `<option value="${i.id}" data-precio="${i.precio}">${i.nombre}</option>`;
+      html += `<option value="${i.id}">${i.nombre}</option>`;
       insumosPrecios[i.id] = i.precio || 0;
     });
 
@@ -104,25 +100,19 @@ async function cargarSelectsInsumosProducto() {
   } catch (error) {}
 }
 
-// --- AGREGAR PRODUCTO ---
 async function agregarProducto(event) {
   event.preventDefault();
-  if (!esAdmin()) return mostrarNotificacion({titulo: "Denegado", mensaje: "Solo administradores.", tipo: "error"});
-  
   const nombre = document.getElementById("nombre").value.trim();
   const precio = parseInt(document.getElementById("precio").value, 10);
   const insumo_id = document.getElementById("insumo-principal").value ? parseInt(document.getElementById("insumo-principal").value) : null;
   const categoria_id = document.getElementById("categoria-principal").value ? parseInt(document.getElementById("categoria-principal").value) : null;
 
-  // Validaciones
   if (!nombre || isNaN(precio) || !categoria_id) {
-    return mostrarNotificacion({titulo: "Atención", mensaje: "Nombre, Precio y Categoría son obligatorios.", tipo: "warning"});
+    return alert("Nombre, Precio y Categoría son campos obligatorios.");
   }
-  if (precio <= 0) {
-    return mostrarNotificacion({titulo: "Error", mensaje: "El precio debe ser un número entero positivo.", tipo: "warning"});
-  }
+  if (precio <= 0) return alert("El precio debe ser un número entero positivo.");
   if (productosOriginal.some(p => p.nombre.toLowerCase() === nombre.toLowerCase())) {
-    return mostrarNotificacion({titulo: "Duplicado", mensaje: "Ya existe un producto con ese nombre.", tipo: "error"});
+    return alert("Ya existe un producto registrado con ese mismo nombre.");
   }
   
   try {
@@ -134,23 +124,12 @@ async function agregarProducto(event) {
 
     if (!respuesta.ok) throw new Error("Error al guardar");
 
-    mostrarNotificacion({titulo: "Éxito", mensaje: "Producto agregado", tipo: "success"});
+    alert("🎉 Producto añadido exitosamente.");
     document.getElementById("form-agregar").reset();
     document.getElementById("info-ganancia").innerHTML = "Selecciona un insumo y pon un precio...";
     bootstrap.Modal.getInstance(document.getElementById("modalAgregar")).hide();
     cargarProductos();
-  } catch (error) { mostrarNotificacion({titulo: "Error", mensaje: "Error al guardar", tipo: "error"}); }
-}
-
-async function eliminarProducto(id) {
-  if (!esAdmin()) return alert("Solo los administradores pueden eliminar.");
-  if (!confirm("¿Estás seguro que quieres eliminar este producto?")) return;
-  try {
-    const respuesta = await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' });
-    if (!respuesta.ok) throw new Error("No se pudo eliminar");
-    mostrarNotificacion({titulo: "Eliminado", mensaje: "Producto eliminado correctamente.", tipo: "success"});
-    cargarProductos();
-  } catch (error) { mostrarNotificacion({titulo: "Error", mensaje: "No se pudo eliminar.", tipo: "error"}); }
+  } catch (error) { alert("Error al guardar en el servidor"); }
 }
 
 async function abrirEditarProducto(id) {
@@ -176,12 +155,7 @@ async function actualizarProducto(event) {
   const insumo_id = document.getElementById("edit-insumo-principal").value ? parseInt(document.getElementById("edit-insumo-principal").value) : null;
   const categoria_id = document.getElementById("edit-categoria-principal").value ? parseInt(document.getElementById("edit-categoria-principal").value) : null;
 
-  if (!nombre || isNaN(precio) || precio <= 0 || !categoria_id) {
-    return mostrarNotificacion({titulo: "Error", mensaje: "Datos inválidos o campos vacíos.", tipo: "warning"});
-  }
-
-  const categoriaVal = document.getElementById("edit-categoria-principal").value;
-  const categoria_id = categoriaVal ? parseInt(categoriaVal) : null;
+  if (!nombre || isNaN(precio) || precio <= 0 || !categoria_id) return alert("Datos incorrectos o incompletos.");
 
   try {
     const respuesta = await fetch(`${API_URL}/productos/${id}`, {
@@ -189,12 +163,19 @@ async function actualizarProducto(event) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nombre, precio, insumo_id, categoria_id }) 
     });
-
-    if (!respuesta.ok) throw new Error("No se pudo actualizar");
-    mostrarNotificacion({titulo: "Actualizado", mensaje: "Producto actualizado", tipo: "success"});
+    if (!respuesta.ok) throw new Error("Error");
+    alert("Producto actualizado.");
     bootstrap.Modal.getInstance(document.getElementById("modalEditar")).hide();
     cargarProductos();
-  } catch (error) { mostrarNotificacion({titulo: "Error", mensaje: "No se pudo actualizar", tipo: "error"}); }
+  } catch (error) { alert("Error al actualizar"); }
+}
+
+async function eliminarProducto(id) {
+  if (!confirm("¿Deseas eliminar este producto?")) return;
+  try {
+    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
+    cargarProductos();
+  } catch (error) {}
 }
 
 function filtrarProductos() {
@@ -205,11 +186,9 @@ function filtrarProductos() {
   let filtrados = productosOriginal.filter((p) => p.nombre.toLowerCase().includes(valor));
   if (precioBuscado !== "") filtrados = filtrados.filter((p) => p.precio == parseInt(precioBuscado));
   if (categoriaBuscada !== "") filtrados = filtrados.filter((p) => p.categoria_id == parseInt(categoriaBuscada));
-  
   renderizarProductos(filtrados);
 }
 
-// Ganancia en vivo
 function calcularGananciaEnVivo() {
   const precioInput = parseInt(document.getElementById("precio").value) || 0;
   const insumoSelect = document.getElementById("insumo-principal");
@@ -219,14 +198,11 @@ function calcularGananciaEnVivo() {
     infoDiv.innerHTML = `<span class="text-success">Venta C$ ${precioInput} (Utilidad 100%)</span>`;
     return;
   }
-
   const costoInsumo = insumosPrecios[insumoSelect.value] || 0;
   const ganancia = precioInput - costoInsumo;
 
   if (ganancia > 0) {
     infoDiv.innerHTML = `Costo Insumo: C$ ${costoInsumo} <br> <span class="text-success fs-5">Ganancia Neta: C$ ${ganancia}</span>`;
-  } else if (ganancia === 0 && precioInput > 0) {
-    infoDiv.innerHTML = `Costo Insumo: C$ ${costoInsumo} <br> <span class="text-warning fs-5">Sin Ganancia (Punto de equilibrio)</span>`;
   } else {
     infoDiv.innerHTML = `Costo Insumo: C$ ${costoInsumo} <br> <span class="text-danger fs-5">Pérdida de: C$ ${Math.abs(ganancia)}</span>`;
   }
@@ -238,7 +214,5 @@ document.getElementById("busqueda-precio").addEventListener("input", filtrarProd
 document.getElementById("filtro-categoria").addEventListener("change", filtrarProductos);
 document.getElementById("form-agregar").addEventListener("submit", agregarProducto);
 document.getElementById("form-editar").addEventListener("submit", actualizarProducto);
-
-// Listeners para la ganancia 
 document.getElementById("precio").addEventListener("input", calcularGananciaEnVivo);
 document.getElementById("insumo-principal").addEventListener("change", calcularGananciaEnVivo);

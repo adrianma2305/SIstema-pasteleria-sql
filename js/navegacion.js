@@ -15,12 +15,10 @@ document.addEventListener("DOMContentLoaded", () => {
     usuarios: document.getElementById("seccion-usuarios")
   };
 
-  // --- FUNCIÓN PARA OCULTAR TODO Y QUITAR LA CLASE ACTIVE ---
   function ocultarTodasLasSecciones() {
     Object.values(secciones).forEach(seccion => {
       if (seccion) seccion.style.display = "none";
     });
-    // Se asegura de quitar la clase active a todos los enlaces
     document.querySelectorAll(".nav-links li a").forEach(a => a.classList.remove("active"));
   }
 
@@ -28,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
     botonesNav.inicio.addEventListener("click", async (e) => {
       e.preventDefault(); ocultarTodasLasSecciones();
       if (secciones.inicio) secciones.inicio.style.display = "block";
-      botonesNav.inicio.classList.add("active"); // Le pone la clase al clickear
+      botonesNav.inicio.classList.add("active");
       if (typeof refrescarTotales === 'function') await refrescarTotales();
       if (typeof graficarSemana === 'function') graficarSemana();
       if (typeof refrescarTopProductos === 'function') refrescarTopProductos();
@@ -51,7 +49,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (secciones.productos) secciones.productos.style.display = "block";
       botonesNav.productos.classList.add("active");
       if (typeof cargarProductos === 'function') cargarProductos();
-      if (typeof cargarInsumos === 'function') cargarInsumos();
     });
   }
 
@@ -61,6 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (secciones.proveedores) secciones.proveedores.style.display = "block";
       botonesNav.proveedores.classList.add("active");
       if (typeof cargarProveedores === 'function') cargarProveedores();
+      if (typeof cargarInsumos === 'function') cargarInsumos();
     });
   }
 
