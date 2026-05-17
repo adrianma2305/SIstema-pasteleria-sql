@@ -262,16 +262,17 @@
     <script>
         function imprimirElemento(idElemento) {
             var contenido = document.getElementById(idElemento).innerHTML;
-            var ventanaImpresion = window.open('', '', 'height=500, width=500');
-            ventanaImpresion.document.write('<html><head><title>Imprimir Ticket</title>');
-            ventanaImpresion.document.write('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />');
-            ventanaImpresion.document.write('<style>body { width: 300px; font-family: "Courier New", Courier, monospace; font-size: 14px; margin: 0 auto; }</style>');
-            ventanaImpresion.document.write('</head><body >');
-            ventanaImpresion.document.write(contenido);
-            ventanaImpresion.document.write('</body></html>');
-            ventanaImpresion.document.close();
-            ventanaImpresion.focus();
-            setTimeout(function() { ventanaImpresion.print(); ventanaImpresion.close(); }, 500);
+            var v = window.open('', '', 'height=500, width=500');
+            v.document.write('<html>');
+            v.document.write('<head><title>Imprimir Ticket</title>');
+            v.document.write('<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />');
+            v.document.write('<style>body { width: 300px; font-family: "Courier New", Courier, monospace; font-size: 14px; margin: 0 auto; }</style>');
+            v.document.write('</head>');
+            v.document.write('<body>' + contenido + '</body>');
+            v.document.write('</html>');
+            v.document.close();
+            v.focus();
+            setTimeout(function() { v.print(); v.close(); }, 500);
         }
     </script>
 
