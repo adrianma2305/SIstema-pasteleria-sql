@@ -141,7 +141,13 @@
       </section>
 
       <section id="seccion-productos" style="display: none">
-        <h2 class="mb-4">Lista de productos e Inventario</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h2 class="m-0">Lista de productos e Inventario</h2>
+          <button class="btn btn-success fw-bold shadow-sm" onclick="abrirModalProduccion()">
+            <i class="bi bi-fire"></i> Módulo Hornear (Producción)
+          </button>
+        </div>
+        
         <div class="row mb-3 align-items-center">
           <div class="col-md-3">
             <input type="text" id="busqueda-productos" class="form-control mb-2" placeholder="Buscar producto..." />
@@ -155,7 +161,7 @@
             <input type="number" id="busqueda-precio" class="form-control mb-2" min="1" step="1" placeholder="Filtrar precio..." />
           </div>
           <div class="col-md-3">
-            <button class="btn agregarprod w-100 btn-danger text-white fw-bold" data-bs-toggle="modal" data-bs-target="#modalAgregar">
+            <button class="btn agregarprod w-100 btn-danger text-white fw-bold" data-bs-toggle="modal" data-bs-target="#modalAgregar" onclick="limpiarRecetaTemporal()">
               <i class="bi bi-plus-lg"></i> Agregar producto
             </button>
           </div>
@@ -167,7 +173,7 @@
                 <th>ID</th>
                 <th>Nombre</th>
                 <th>Tipo/Categoría</th>
-                <th>Precio / Utilidad</th>
+                <th>Precio / Costo Fabricación</th>
                 <th>Opciones</th>
               </tr>
             </thead>
@@ -304,6 +310,35 @@
       </section>
     </main>
 
+    <div class="modal fade" id="modalProduccion" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-success">
+          <div class="modal-header bg-success text-white">
+            <h5 class="modal-title fw-bold"><i class="bi bi-fire"></i> Registrar Producción del Día</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <form id="form-produccion" onsubmit="ejecutarProduccion(event)">
+              <div class="mb-3">
+                <label class="form-label fw-bold">¿Qué producto vas a hornear/fabricar?</label>
+                <select id="prod-produccion" class="form-select border-success" required></select>
+              </div>
+              <div class="mb-3">
+                <label class="form-label fw-bold">¿Cuántas unidades produjiste?</label>
+                <input type="number" id="cant-produccion" class="form-control border-success" min="1" step="1" required placeholder="Ej. 20">
+              </div>
+              <div class="p-3 bg-light rounded text-center small text-muted mb-3">
+                ⚠️ Al confirmar, el sistema buscará la receta del producto y descontará automáticamente las cantidades proporcionales de tu almacén de insumos en la nube.
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-success fw-bold">Confirmar e Incrementar Tienda</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal fade" id="modalAgregarInsumo" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg">
@@ -331,6 +366,25 @@
               </div>
               <div class="d-grid"><button type="submit" class="btn btn-danger fw-bold">Guardar Insumo</button></div>
             </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="modalVerReceta" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg border-primary">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title fw-bold" id="title-ver-receta">Fórmula / Receta del Producto</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body p-0">
+            <table class="table table-striped m-0 align-middle">
+              <thead class="table-dark">
+                <tr><th>Ingrediente</th><th>Cant. Requerida</th><th>Costo Proporcional</th></tr>
+              </thead>
+              <tbody id="body-ver-receta"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -459,70 +513,64 @@
     </div>
 
     <div class="modal fade" id="modalAgregar" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content shadow-lg">
           <div class="modal-header bg-danger text-white">
-            <h5 class="modal-title fw-bold">Agregar producto al Inventario</h5>
+            <h5 class="modal-title fw-bold">Agregar producto e Inyectar Fórmula</h5>
             <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <form id="form-agregar">
-              <div class="mb-3">
-                <label class="form-label">Nombre del producto <span class="text-danger">*</span></label>
-                <input type="text" id="nombre" class="form-control" required placeholder="Ej. Churros de queso" />
+            <div class="row">
+              <div class="col-md-5 border-end">
+                <form id="form-agregar">
+                  <div class="mb-3">
+                    <label class="form-label fw-bold">Nombre del producto <span class="text-danger">*</span></label>
+                    <input type="text" id="nombre" class="form-control" required placeholder="Ej. Churros de queso" />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-bold">Precio Venta (Entero positivo) <span class="text-danger">*</span></label>
+                    <input type="number" step="1" min="1" id="precio" class="form-control" required placeholder="C$" />
+                  </div>
+                  <div class="mb-3">
+                    <label class="form-label fw-bold">Categoría / Tipo <span class="text-danger">*</span></label>
+                    <select id="categoria-principal" class="form-select" required>
+                      <option value="">Seleccione una categoría...</option>
+                    </select>
+                  </div>
+                  <div class="p-3 bg-light rounded text-center border">
+                    <div class="text-muted small fw-bold">Costo Acumulado Insumos:</div>
+                    <h4 class="text-danger fw-bold m-0">C$ <span id="lbl-costo-receta">0</span></h4>
+                  </div>
+                  <div class="d-grid mt-4"><button type="submit" class="btn btn-danger fw-bold btn-lg">Guardar Producto Completo</button></div>
+                </form>
               </div>
-              <div class="mb-3">
-                <label class="form-label">Precio Venta (Entero positivo) <span class="text-danger">*</span></label>
-                <input type="number" step="1" min="1" id="precio" class="form-control" required placeholder="C$" />
+              
+              <div class="col-md-7">
+                <h6 class="fw-bold mb-2 text-primary"><i class="bi bi-tools"></i> Armar Receta Múltiple</h6>
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <select id="insumo-receta-select" class="form-select small"></select>
+                  </div>
+                  <div class="col-4">
+                    <input type="number" id="insumo-receta-cantidad" class="form-control" min="0.01" step="0.01" placeholder="Cant.">
+                  </div>
+                  <div class="col-2">
+                    <button type="button" class="btn btn-dark w-100" onclick="agregarIngredienteATemporal()"><i class="bi bi-plus"></i></button>
+                  </div>
+                </div>
+                
+                <div style="max-height: 220px; overflow-y: auto;">
+                  <table class="table table-sm table-striped small align-middle">
+                    <thead class="table-dark">
+                      <tr><th>Ingrediente</th><th>Cant.</th><th>Subtotal</th><th></th></tr>
+                    </thead>
+                    <tbody id="tabla-receta-temporal">
+                      <tr><td colspan="4" class="text-center text-muted">No has añadido ingredientes aún.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
-              <div class="mb-3">
-                <label class="form-label">Categoría / Tipo <span class="text-danger">*</span></label>
-                <select id="categoria-principal" class="form-select" required>
-                  <option value="">Seleccione una categoría...</option>
-                </select>
-              </div>
-              <div class="mb-3 p-3 bg-light border rounded">
-                <label class="form-label fw-bold">Cálculo de Ganancias (Opcional)</label>
-                <select id="insumo-principal" class="form-select mb-2">
-                  <option value="">Seleccione insumo base...</option>
-                </select>
-                <div id="info-ganancia" class="small text-primary fw-bold text-center">Selecciona un insumo y pon un precio para ver tu ganancia estimada.</div>
-              </div>
-              <div class="d-grid"><button type="submit" class="btn btn-danger fw-bold">Guardar Producto</button></div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-lg">
-          <div class="modal-header bg-info text-white">
-            <h5 class="modal-title fw-bold">Editar producto</h5>
-            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <form id="form-editar">
-              <input type="hidden" id="edit-id" />
-              <div class="mb-3">
-                <label class="form-label">Nombre del producto <span class="text-danger">*</span></label>
-                <input type="text" id="edit-nombre" class="form-control" required />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Precio Venta (Entero) <span class="text-danger">*</span></label>
-                <input type="number" step="1" min="1" id="edit-precio" class="form-control" required />
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Categoría / Tipo <span class="text-danger">*</span></label>
-                <select id="edit-categoria-principal" class="form-select" required></select>
-              </div>
-              <div class="mb-3">
-                <label class="form-label">Insumo Base</label>
-                <select id="edit-insumo-principal" class="form-select"></select>
-              </div>
-              <div class="d-grid"><button type="submit" class="btn btn-info text-white fw-bold">Actualizar Producto</button></div>
-            </form>
+            </div>
           </div>
         </div>
       </div>

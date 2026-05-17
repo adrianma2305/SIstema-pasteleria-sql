@@ -6,6 +6,7 @@ const app = express();
 app.use(cors()); 
 app.use(express.json());
 
+// --- 1. CONFIGURACION DE BASE DE DATOS (AZURE) ---
 const dbConfig = {
     user: 'adminsory',
     password: 'sep.23059', 
@@ -25,7 +26,7 @@ const poolPromise = sql.connect(dbConfig).then(pool => {
     console.log("❌ Error al conectar a la BD en Azure: ", err.message);
 });
 
-// RUTAS EMPLEADOS
+// --- 2. RUTAS DE EMPLEADOS ---
 app.get('/api/empleados', async (req, res) => {
     try {
         let pool = await poolPromise; 
@@ -82,7 +83,7 @@ app.delete('/api/empleados/:id', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// CATEGORIAS
+// --- 3. CATEGORIAS ---
 app.get('/api/categorias', async (req, res) => {
     try {
         let pool = await poolPromise;
@@ -91,69 +92,171 @@ app.get('/api/categorias', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// PRODUCTOS
+// --- 4. NUEVO SISTEMA DE PRODUCTOS Y RECETAS ---
+
+// Obtener todos los productos y sumar el costo de su receta
 app.get('/api/productos', async (req, res) => {
     try {
         let pool = await poolPromise;
         let result = await pool.request().query(`
-            SELECT p.*, i.nombre as nombre_insumo, i.precio as precio_insumo, c.nombre as nombre_categoria
+            SELECT p.id, p.nombre, p.precio, p.categoria_id, c.nombre as nombre_categoria,
+                   ISNULL(SUM(rd.cantidad_necesaria * i.precio), 0) as costo_total
             FROM productos p 
-            LEFT JOIN insumos i ON p.insumo_id = i.id
             LEFT JOIN categorias c ON p.categoria_id = c.id
+            LEFT JOIN Recetas_Detalle rd ON p.id = rd.producto_id AND rd.activo = 1
+            LEFT JOIN Insumos i ON rd.insumo_id = i.id
             WHERE p.activo = 1
+            GROUP BY p.id, p.nombre, p.precio, p.categoria_id, c.nombre
+            ORDER BY p.id DESC
         `);
+        
         const formated = result.recordset.map(prod => ({
             id: prod.id,
             nombre: prod.nombre,
             precio: prod.precio,
-            costo: prod.precio_insumo || 0,
-            insumo_id: prod.insumo_id,
+            costo: prod.costo_total, // Costo real calculado sumando ingredientes
             categoria_id: prod.categoria_id,
-            insumo: prod.nombre_insumo ? { nombre: prod.nombre_insumo, precio: prod.precio_insumo } : null,
             categoria: prod.nombre_categoria ? { nombre: prod.nombre_categoria } : null
         }));
         res.json(formated);
     } catch (err) { res.status(500).send(err.message); }
 });
 
-app.post('/api/productos', async (req, res) => {
+// Obtener los ingredientes específicos de un producto
+app.get('/api/productos/:id/receta', async (req, res) => {
     try {
-        const { nombre, precio, insumo_id, categoria_id } = req.body;
         let pool = await poolPromise;
-        await pool.request()
-            .input('nombre', sql.VarChar, nombre)
-            .input('precio', sql.Int, precio)
-            .input('insumo_id', sql.Int, insumo_id || null)
-            .input('categoria_id', sql.Int, categoria_id || null)
-            .query('INSERT INTO productos (nombre, precio, insumo_id, categoria_id) VALUES (@nombre, @precio, @insumo_id, @categoria_id)');
-        res.status(201).send('OK');
+        let result = await pool.request()
+            .input('id', sql.Int, req.params.id)
+            .query(`
+                SELECT rd.insumo_id, i.nombre as nombre_insumo, i.unidad, i.precio as costo_unitario, 
+                       rd.cantidad_necesaria, (rd.cantidad_necesaria * i.precio) as subtotal_costo
+                FROM Recetas_Detalle rd
+                JOIN Insumos i ON rd.insumo_id = i.id
+                WHERE rd.producto_id = @id AND rd.activo = 1
+            `);
+        res.json(result.recordset);
     } catch (err) { res.status(500).send(err.message); }
 });
 
-app.get('/api/productos/:id', async (req, res) => {
+// Crear producto y guardar su receta múltiple
+app.post('/api/productos', async (req, res) => {
+    let transaction;
     try {
+        const { nombre, precio, categoria_id, receta } = req.body; 
         let pool = await poolPromise;
-        let result = await pool.request().input('id', sql.Int, req.params.id).query('SELECT * FROM productos WHERE id = @id AND activo = 1');
-        res.json(result.recordset[0]);
-    } catch (err) { res.status(500).send(err.message); }
+        transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        let reqProd = new sql.Request(transaction);
+        let resProd = await reqProd
+            .input('nombre', sql.VarChar, nombre)
+            .input('precio', sql.Int, precio)
+            .input('categoria_id', sql.Int, categoria_id || null)
+            .query('INSERT INTO productos (nombre, precio, categoria_id) OUTPUT INSERTED.id VALUES (@nombre, @precio, @categoria_id)');
+            
+        let nuevoId = resProd.recordset[0].id;
+
+        if (receta && receta.length > 0) {
+            for (let item of receta) {
+                let reqRec = new sql.Request(transaction);
+                await reqRec
+                    .input('prod_id', sql.Int, nuevoId)
+                    .input('ins_id', sql.Int, item.insumo_id)
+                    .input('cant', sql.Decimal(10,2), item.cantidad_necesaria)
+                    .query('INSERT INTO Recetas_Detalle (producto_id, insumo_id, cantidad_necesaria) VALUES (@prod_id, @ins_id, @cant)');
+            }
+        }
+        await transaction.commit();
+        res.status(201).send('Producto y Receta agregados');
+    } catch (err) { 
+        if(transaction) await transaction.rollback();
+        res.status(500).send(err.message); 
+    }
 });
 
 app.put('/api/productos/:id', async (req, res) => {
+    let transaction;
     try {
-        const { nombre, precio, insumo_id, categoria_id } = req.body;
+        const id = req.params.id;
+        const { nombre, precio, categoria_id, receta } = req.body;
         let pool = await poolPromise;
-        await pool.request()
-            .input('id', sql.Int, req.params.id)
+        transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        let reqProd = new sql.Request(transaction);
+        await reqProd
+            .input('id', sql.Int, id)
             .input('nombre', sql.VarChar, nombre)
             .input('precio', sql.Int, precio)
-            .input('insumo_id', sql.Int, insumo_id || null)
             .input('categoria_id', sql.Int, categoria_id || null)
-            .query('UPDATE productos SET nombre = @nombre, precio = @precio, insumo_id = @insumo_id, categoria_id = @categoria_id, fecha_actualizacion = GETDATE() WHERE id = @id');
+            .query('UPDATE productos SET nombre = @nombre, precio = @precio, categoria_id = @categoria_id, fecha_actualizacion = GETDATE() WHERE id = @id');
+
+        if (receta) {
+            let reqDel = new sql.Request(transaction);
+            await reqDel.input('id', sql.Int, id).query('DELETE FROM Recetas_Detalle WHERE producto_id = @id');
+
+            for (let item of receta) {
+                let reqRec = new sql.Request(transaction);
+                await reqRec
+                    .input('prod_id', sql.Int, id)
+                    .input('ins_id', sql.Int, item.insumo_id)
+                    .input('cant', sql.Decimal(10,2), item.cantidad_necesaria)
+                    .query('INSERT INTO Recetas_Detalle (producto_id, insumo_id, cantidad_necesaria) VALUES (@prod_id, @ins_id, @cant)');
+            }
+        }
+        await transaction.commit();
+        res.status(200).send('OK');
+    } catch (err) { 
+        if(transaction) await transaction.rollback();
+        res.status(500).send(err.message); 
+    }
+});
+
+app.delete('/api/productos/:id', async (req, res) => {
+    try {
+        let pool = await poolPromise;
+        await pool.request().input('id', sql.Int, req.params.id).query('UPDATE productos SET activo = 0 WHERE id = @id');
         res.status(200).send('OK');
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// PROVEEDORES
+// --- EL BOTÓN MÁGICO: PRODUCCIÓN (Descontar Insumos) ---
+app.post('/api/produccion', async (req, res) => {
+    let transaction;
+    try {
+        const { producto_id, cantidad_producida, usuario_id } = req.body;
+        let pool = await poolPromise;
+        transaction = new sql.Transaction(pool);
+        await transaction.begin();
+
+        // 1. Obtener la receta
+        let reqReceta = new sql.Request(transaction);
+        let resReceta = await reqReceta.input('p_id', sql.Int, producto_id).query('SELECT insumo_id, cantidad_necesaria FROM Recetas_Detalle WHERE producto_id = @p_id AND activo = 1');
+        
+        if(resReceta.recordset.length === 0) throw new Error("El producto no tiene receta armada.");
+
+        // 2. Descontar del Kardex
+        for (let item of resReceta.recordset) {
+            let gastoTotal = item.cantidad_necesaria * cantidad_producida;
+            let reqKardex = new sql.Request(transaction);
+            await reqKardex
+                .input('ins_id', sql.Int, item.insumo_id)
+                .input('cant', sql.Decimal(10,2), gastoTotal)
+                .input('usu_id', sql.Int, usuario_id || null)
+                .input('motivo', sql.VarChar, `Producción de ${cantidad_producida} unidades`)
+                .query("INSERT INTO Kardex_Insumos (insumo_id, tipo_movimiento, cantidad, motivo, usuario_id) VALUES (@ins_id, 'SALIDA', @cant, @motivo, @usu_id)");
+        }
+
+        await transaction.commit();
+        res.status(200).json({ success: true, message: 'Inventario descontado exitosamente' });
+    } catch (err) {
+        if(transaction) await transaction.rollback();
+        res.status(500).send(err.message);
+    }
+});
+
+// --- PROVEEDORES E INSUMOS ---
 app.get('/api/proveedores', async (req, res) => {
     try {
         let pool = await poolPromise;
@@ -196,11 +299,10 @@ app.delete('/api/proveedores/:id', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// INSUMOS
 app.get('/api/insumos', async (req, res) => {
     try {
         let pool = await poolPromise;
-        let result = await pool.request().query('SELECT i.*, p.nombre as nombre_proveedor FROM insumos i LEFT JOIN proveedores p ON i.proveedor_id = p.id WHERE i.activo = 1');
+        let result = await pool.request().query('SELECT i.*, p.nombre as nombre_proveedor FROM insumos i LEFT JOIN proveedores p ON i.proveedor_id = p.id WHERE i.activo = 1 ORDER BY i.nombre');
         const formated = result.recordset.map(ins => ({
             id: ins.id, nombre: ins.nombre, unidad: ins.unidad, precio: ins.precio, proveedor_id: ins.proveedor_id, proveedores: ins.nombre_proveedor ? { nombre: ins.nombre_proveedor } : null
         }));
@@ -242,12 +344,18 @@ app.delete('/api/insumos/:id', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// CLIENTES Y VENTAS
+// --- CLIENTES Y VENTAS ---
 app.get('/api/clientes', async (req, res) => {
     try {
         let pool = await poolPromise;
-        let result = await pool.request().query('SELECT * FROM clientes WHERE activo = 1');
-        res.json(result.recordset);
+        let nombre = req.query.nombre;
+        if(nombre) {
+            let result = await pool.request().input('nombre', sql.VarChar, `%${nombre}%`).query('SELECT * FROM clientes WHERE nombre LIKE @nombre AND activo = 1');
+            res.json(result.recordset);
+        } else {
+            let result = await pool.request().query('SELECT * FROM clientes WHERE activo = 1');
+            res.json(result.recordset);
+        }
     } catch (err) { res.status(500).send(err.message); }
 });
 
@@ -299,7 +407,7 @@ app.get('/api/ventas/:id/detalles', async (req, res) => {
     } catch (err) { res.status(500).send(err.message); }
 });
 
-// DASHBOARD
+// --- DASHBOARD ---
 app.get('/api/dashboard/resumen', async (req, res) => {
     try {
         let pool = await poolPromise;

@@ -1,55 +1,54 @@
 const API_URL = "https://sistema-pasteleria-sql.onrender.com/api";
 let productosOriginal = [];
-let insumosPrecios = {}; 
+let insumosAlmacenados = []; 
+let recetaTemporal = []; 
 
+// --- CARGAR PRODUCTOS DESDE LA NUBE ---
 async function cargarProductos() {
   const tabla = document.querySelector("#productos-table tbody");
-  tabla.innerHTML = "<tr><td colspan='5'>Cargando...</td></tr>";
+  tabla.innerHTML = "<tr><td colspan='5' class='text-center'>Cargando menú desde Azure...</td></tr>";
+  
   try {
     const respuesta = await fetch(`${API_URL}/productos`);
     if (!respuesta.ok) throw new Error("Error al cargar productos");
     const productos = await respuesta.json();
+    
     productosOriginal = productos;
     renderizarProductos(productos);
-    cargarSelectsInsumosProducto();
+    await cargarSelectInsumosReceta();
     cargarSelectsCategorias();
   } catch (error) {
-    tabla.innerHTML = "<tr><td colspan='5'>Error al cargar desde SQL Server.</td></tr>";
+    tabla.innerHTML = "<tr><td colspan='5' class='text-center text-danger'>Error al conectar con la base de datos en la nube.</td></tr>";
   }
 }
 
+// --- RENDERIZAR TABLA CON COSTO TOTAL ACUMULADO ---
 function renderizarProductos(productos) {
   const tabla = document.querySelector("#productos-table tbody");
   tabla.innerHTML = "";
   const isAdmin = (typeof esAdmin === 'function') ? esAdmin() : false;
 
   productos.forEach((p) => {
-    const nombreInsumo = p.insumo ? `<span class="badge bg-secondary">${p.insumo.nombre}</span>` : "-";
-    const nombreCategoria = p.categoria ? `<span class="badge bg-primary">${p.categoria.nombre}</span>` : `<span class="badge bg-light text-dark">Sin categoría</span>`;
-
     const botonesAccion = isAdmin ? `
+      <button class="btn btn-sm btn-primary me-1" onclick="verRecetaModal(${p.id}, '${p.nombre}')" title="Ver Receta/Fórmula"><i class="bi bi-journal-text"></i></button>
       <button class="btn btn-sm btn-danger" onclick="eliminarProducto(${p.id})" title="Eliminar"><i class="bi bi-trash"></i></button>
-      <button class="btn btn-sm btn-info" onclick="abrirEditarProducto(${p.id})" title="Editar"><i class="bi bi-pencil"></i></button>
-    ` : `<span class="badge bg-secondary">Sin permisos</span>`;
+    ` : `<span class="badge bg-secondary">Solo lectura</span>`;
 
-    const costo = p.costo || 0;
-    const ganancia = p.precio - costo;
-    let infoFinanciera = `<div class="fw-bold">C$ ${p.precio}</div>`;
+    const costoFabricacion = p.costo || 0;
+    const gananciaNeta = p.precio - costoFabricacion;
     
-    if (costo > 0) {
-      infoFinanciera += `<small class="text-success fw-bold">Ganancia: C$ ${ganancia}</small>`;
+    let infoFinanciera = `<div class="fw-bold">C$ ${p.precio}</div>`;
+    if (costoFabricacion > 0) {
+      infoFinanciera += `<small class="text-success fw-bold">Utilidad: C$ ${gananciaNeta.toFixed(0)}</small><br><small class="text-muted text-xs">Costo Insumos: C$ ${costoFabricacion.toFixed(0)}</small>`;
     } else {
-      infoFinanciera += `<small class="text-muted">Utilidad 100%</small>`;
+      infoFinanciera += `<small class="text-warning">Sin Receta (100% Margen)</small>`;
     }
 
     const fila = `
       <tr>
         <td>${p.id}</td>
-        <td>
-          <div class="fw-bold">${p.nombre}</div>
-          <small class="text-muted">Base: ${nombreInsumo}</small>
-        </td>
-        <td>${nombreCategoria}</td>
+        <td class="fw-bold">${p.nombre}</td>
+        <td><span class="badge bg-dark">${p.categoria?.nombre || 'General'}</span></td>
         <td>${infoFinanciera}</td>
         <td>${botonesAccion}</td>
       </tr>
@@ -58,13 +57,211 @@ function renderizarProductos(productos) {
   });
 }
 
+// --- LOGICA DEL CONSTRUCTOR DE RECETAS EN EL FRONTEND ---
+async function cargarSelectInsumosReceta() {
+  try {
+    const respuesta = await fetch(`${API_URL}/insumos`);
+    insumosAlmacenados = await respuesta.json();
+    
+    const select = document.getElementById("insumo-receta-select");
+    if(select) {
+      select.innerHTML = '<option value="" disabled selected>Selecciona ingrediente...</option>';
+      insumosAlmacenados.forEach(i => {
+        select.innerHTML += `<option value="${i.id}">繁殖 ${i.nombre} (${i.unidad})</option>`;
+      });
+    }
+  } catch (error) {}
+}
+
+function limpiarRecetaTemporal() {
+  recetaTemporal = [];
+  renderizarTablaRecetaTemporal();
+}
+
+function agregarIngredienteATemporal() {
+  const select = document.getElementById("insumo-receta-select");
+  const cantInput = document.getElementById("insumo-receta-cantidad");
+  
+  if(!select.value || !cantInput.value || parseFloat(cantInput.value) <= 0) {
+    return alert("Por favor selecciona un insumo y digita una cantidad positiva válida.");
+  }
+
+  const insumoId = parseInt(select.value);
+  const cantidad = parseFloat(cantInput.value);
+  const insumoObj = insumosAlmacenados.find(i => i.id === insumoId);
+
+  if(recetaTemporal.some(item => item.insumo_id === insumoId)) {
+    return alert("Este ingrediente ya está en la receta. Elimínalo si deseas cambiar la cantidad.");
+  }
+
+  const subtotal = Math.ceil(cantidad * insumoObj.precio);
+  recetaTemporal.push({
+    insumo_id: insumoId,
+    nombre: insumoObj.nombre,
+    cantidad_necesaria: cantidad,
+    subtotal: subtotal
+  });
+
+  cantInput.value = "";
+  renderizarTablaRecetaTemporal();
+}
+
+function quitarIngredienteTemporal(index) {
+  recetaTemporal.splice(index, 1);
+  renderizarTablaRecetaTemporal();
+}
+
+function renderizarTablaRecetaTemporal() {
+  const tbody = document.getElementById("tabla-receta-temporal");
+  const lblTotal = document.getElementById("lbl-costo-receta");
+  
+  if(!tbody) return;
+  tbody.innerHTML = "";
+  
+  if(recetaTemporal.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No has añadido ingredientes aún.</td></tr>`;
+    lblTotal.innerText = "0";
+    return;
+  }
+
+  let costoAcumulado = 0;
+  recetaTemporal.forEach((item, index) => {
+    costoAcumulado += item.subtotal;
+    tbody.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${item.nombre}</td>
+        <td>${item.cantidad_necesaria}</td>
+        <td class="fw-bold">C$ ${item.subtotal}</td>
+        <td class="text-end"><button type="button" class="btn btn-sm btn-link p-0 text-danger" onclick="quitarIngredienteTemporal(${index})"><i class="bi bi-trash"></i></button></td>
+      </tr>
+    `);
+  });
+
+  lblTotal.innerText = costoAcumulado;
+}
+
+// --- VER FORMULA DETALLADA ---
+async function verRecetaModal(id, nombreProducto) {
+  document.getElementById("title-ver-receta").innerText = `Fórmula: ${nombreProducto}`;
+  const tbody = document.getElementById("body-ver-receta");
+  tbody.innerHTML = "<tr><td colspan='3' class='text-center'>Consultando Azure SQL...</td></tr>";
+  
+  const modal = new bootstrap.Modal(document.getElementById("modalVerReceta"));
+  modal.show();
+
+  try {
+    const res = await fetch(`${API_URL}/productos/${id}/receta`);
+    const datos = await res.json();
+    
+    tbody.innerHTML = "";
+    if(datos.length === 0) {
+      tbody.innerHTML = "<tr><td colspan='3' class='text-center text-muted'>Este producto no tiene ingredientes asignados.</td></tr>";
+      return;
+    }
+    
+    datos.forEach(d => {
+      tbody.insertAdjacentHTML("beforeend", `
+        <tr>
+          <td class="fw-bold">${d.nombre_insumo}</td>
+          <td>${d.cantidad_necesaria} (${d.unidad})</td>
+          <td class="text-primary fw-bold">C$ ${Math.ceil(d.subtotal_costo)}</td>
+        </tr>
+      `);
+    });
+  } catch (error) { tbody.innerHTML = "<tr><td colspan='3' class='text-center text-danger'>Error al recuperar receta.</td></tr>"; }
+}
+
+// --- ENVIAR PRODUCTO NUEVO CON SU EMBEBIDO DE RECETA ---
+async function agregarProducto(event) {
+  event.preventDefault();
+  if (!esAdmin()) return;
+  
+  const nombre = document.getElementById("nombre").value.trim();
+  const precio = parseInt(document.getElementById("precio").value, 10);
+  const categoria_id = document.getElementById("categoria-principal").value ? parseInt(document.getElementById("categoria-principal").value) : null;
+
+  if (!nombre || isNaN(precio) || precio <= 0 || !categoria_id) {
+    return alert("Todos los campos obligatorios deben ser llenados.");
+  }
+  
+  try {
+    const respuesta = await fetch(`${API_URL}/productos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        nombre, 
+        precio, 
+        categoria_id, 
+        receta: recetaTemporal 
+      }) 
+    });
+
+    if (!respuesta.ok) throw new Error("Error");
+
+    alert("🎉 Producto e ingredientes guardados exitosamente en la nube.");
+    document.getElementById("form-agregar").reset();
+    limpiarRecetaTemporal();
+    bootstrap.Modal.getInstance(document.getElementById("modalAgregar")).hide();
+    cargarProductos();
+  } catch (error) { alert("Error de comunicación con Render."); }
+}
+
+// --- MODULO DE PRODUCCION: HORNEAR EN VIVO ---
+function abrirModalProduccion() {
+  const select = document.getElementById("prod-produccion");
+  if(!select) return;
+  
+  select.innerHTML = '<option value="" disabled selected>Selecciona producto horneado...</option>';
+  productosOriginal.forEach(p => {
+    select.innerHTML += `<option value="${p.id}">${p.nombre}</option>`;
+  });
+
+  new bootstrap.Modal(document.getElementById("modalProduccion")).show();
+}
+
+async function ejecutarProduccion(event) {
+  event.preventDefault();
+  const producto_id = parseInt(document.getElementById("prod-produccion").value);
+  const cantidad_producida = parseInt(document.getElementById("cant-produccion").value, 10);
+  const usuario_id = localStorage.getItem("usuario_id") ? parseInt(localStorage.getItem("usuario_id")) : null;
+
+  if(!producto_id || isNaN(cantidad_producida) || cantidad_producida <= 0) return alert("Ingresa datos coherentes.");
+
+  try {
+    const respuesta = await fetch(`${API_URL}/produccion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ producto_id, cantidad_producida, usuario_id })
+    });
+
+    if(!respuesta.ok) {
+      const msgErr = await respuesta.text();
+      throw new Error(msgErr);
+    }
+
+    alert(`💪 ¡Producción registrada! Se descontaron los insumos proporcionales de tu almacén.`);
+    document.getElementById("form-produccion").reset();
+    bootstrap.Modal.getInstance(document.getElementById("modalProduccion")).hide();
+    cargarProductos();
+  } catch (error) {
+    alert("Error al descontar almacén: " + error.message);
+  }
+}
+
+async function eliminarProducto(id) {
+  if (!confirm("¿Deseas deshabilitar este producto?")) return;
+  try {
+    await fetch(`${API_URL}/productos/${id}`, { method: 'DELETE' });
+    cargarProductos();
+  } catch (error) {}
+}
+
 async function cargarSelectsCategorias() {
   try {
     const respuesta = await fetch(`${API_URL}/categorias`);
     const categorias = await respuesta.json();
     const selectFiltro = document.getElementById("filtro-categoria");
     const selectAgregar = document.getElementById("categoria-principal");
-    const selectEditar = document.getElementById("edit-categoria-principal");
 
     let htmlFiltro = '<option value="">Todas las categorías</option>';
     let htmlModal = '<option value="">Seleccione una categoría...</option>';
@@ -76,105 +273,6 @@ async function cargarSelectsCategorias() {
 
     if (selectFiltro) selectFiltro.innerHTML = htmlFiltro;
     if (selectAgregar) selectAgregar.innerHTML = htmlModal;
-    if (selectEditar) selectEditar.innerHTML = htmlModal;
-  } catch (error) {}
-}
-
-async function cargarSelectsInsumosProducto() {
-  try {
-    const respuesta = await fetch(`${API_URL}/insumos`);
-    const insumos = await respuesta.json();
-    insumosPrecios = {}; 
-
-    const selectAgregar = document.getElementById("insumo-principal");
-    const selectEditar = document.getElementById("edit-insumo-principal");
-    let html = '<option value="">Ninguno / No aplica</option>';
-
-    insumos.forEach(i => {
-      html += `<option value="${i.id}">${i.nombre}</option>`;
-      insumosPrecios[i.id] = i.precio || 0;
-    });
-
-    if (selectAgregar) selectAgregar.innerHTML = html;
-    if (selectEditar) selectEditar.innerHTML = html;
-  } catch (error) {}
-}
-
-async function agregarProducto(event) {
-  event.preventDefault();
-  const nombre = document.getElementById("nombre").value.trim();
-  const precio = parseInt(document.getElementById("precio").value, 10);
-  const insumo_id = document.getElementById("insumo-principal").value ? parseInt(document.getElementById("insumo-principal").value) : null;
-  const categoria_id = document.getElementById("categoria-principal").value ? parseInt(document.getElementById("categoria-principal").value) : null;
-
-  if (!nombre || isNaN(precio) || !categoria_id) {
-    return alert("Nombre, Precio y Categoría son campos obligatorios.");
-  }
-  if (precio <= 0) return alert("El precio debe ser un número entero positivo.");
-  if (productosOriginal.some(p => p.nombre.toLowerCase() === nombre.toLowerCase())) {
-    return alert("Ya existe un producto registrado con ese mismo nombre.");
-  }
-  
-  try {
-    const respuesta = await fetch(`${API_URL}/productos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, precio, insumo_id, categoria_id }) 
-    });
-
-    if (!respuesta.ok) throw new Error("Error al guardar");
-
-    alert("🎉 Producto añadido exitosamente.");
-    document.getElementById("form-agregar").reset();
-    document.getElementById("info-ganancia").innerHTML = "Selecciona un insumo y pon un precio...";
-    bootstrap.Modal.getInstance(document.getElementById("modalAgregar")).hide();
-    cargarProductos();
-  } catch (error) { alert("Error al guardar en el servidor"); }
-}
-
-async function abrirEditarProducto(id) {
-  try {
-    const respuesta = await fetch(`${API_URL}/productos/${id}`);
-    const data = await respuesta.json();
-
-    document.getElementById("edit-id").value = data.id;
-    document.getElementById("edit-nombre").value = data.nombre;
-    document.getElementById("edit-precio").value = data.precio;
-    document.getElementById("edit-insumo-principal").value = data.insumo_id || "";
-    document.getElementById("edit-categoria-principal").value = data.categoria_id || ""; 
-    
-    new bootstrap.Modal(document.getElementById("modalEditar")).show();
-  } catch (error) {}
-}
-
-async function actualizarProducto(event) {
-  event.preventDefault();
-  const id = document.getElementById("edit-id").value;
-  const nombre = document.getElementById("edit-nombre").value.trim();
-  const precio = parseInt(document.getElementById("edit-precio").value, 10);
-  const insumo_id = document.getElementById("edit-insumo-principal").value ? parseInt(document.getElementById("edit-insumo-principal").value) : null;
-  const categoria_id = document.getElementById("edit-categoria-principal").value ? parseInt(document.getElementById("edit-categoria-principal").value) : null;
-
-  if (!nombre || isNaN(precio) || precio <= 0 || !categoria_id) return alert("Datos incorrectos o incompletos.");
-
-  try {
-    const respuesta = await fetch(`${API_URL}/productos/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, precio, insumo_id, categoria_id }) 
-    });
-    if (!respuesta.ok) throw new Error("Error");
-    alert("Producto actualizado.");
-    bootstrap.Modal.getInstance(document.getElementById("modalEditar")).hide();
-    cargarProductos();
-  } catch (error) { alert("Error al actualizar"); }
-}
-
-async function eliminarProducto(id) {
-  if (!confirm("¿Deseas eliminar este producto?")) return;
-  try {
-    await fetch(`${API_URL}/${id}`, { method: 'DELETE' });
-    cargarProductos();
   } catch (error) {}
 }
 
@@ -189,30 +287,8 @@ function filtrarProductos() {
   renderizarProductos(filtrados);
 }
 
-function calcularGananciaEnVivo() {
-  const precioInput = parseInt(document.getElementById("precio").value) || 0;
-  const insumoSelect = document.getElementById("insumo-principal");
-  const infoDiv = document.getElementById("info-ganancia");
-
-  if (!insumoSelect.value) {
-    infoDiv.innerHTML = `<span class="text-success">Venta C$ ${precioInput} (Utilidad 100%)</span>`;
-    return;
-  }
-  const costoInsumo = insumosPrecios[insumoSelect.value] || 0;
-  const ganancia = precioInput - costoInsumo;
-
-  if (ganancia > 0) {
-    infoDiv.innerHTML = `Costo Insumo: C$ ${costoInsumo} <br> <span class="text-success fs-5">Ganancia Neta: C$ ${ganancia}</span>`;
-  } else {
-    infoDiv.innerHTML = `Costo Insumo: C$ ${costoInsumo} <br> <span class="text-danger fs-5">Pérdida de: C$ ${Math.abs(ganancia)}</span>`;
-  }
-}
-
 document.addEventListener("DOMContentLoaded", cargarProductos);
 document.getElementById("busqueda-productos").addEventListener("input", filtrarProductos);
 document.getElementById("busqueda-precio").addEventListener("input", filtrarProductos);
 document.getElementById("filtro-categoria").addEventListener("change", filtrarProductos);
 document.getElementById("form-agregar").addEventListener("submit", agregarProducto);
-document.getElementById("form-editar").addEventListener("submit", actualizarProducto);
-document.getElementById("precio").addEventListener("input", calcularGananciaEnVivo);
-document.getElementById("insumo-principal").addEventListener("change", calcularGananciaEnVivo);
