@@ -23,15 +23,10 @@ async function inicializarSistemaConLogin() {
         if (mainContent) mainContent.style.display = "block";
         if (sidebar) sidebar.style.display = "block";
         
-        if (esAdmin()) {
-            document.getElementById("btn-ir-inicio")?.click(); 
-        } else {
-            document.getElementById("btn-ir-ventas")?.click(); 
-        }
+        if (esAdmin()) { document.getElementById("btn-ir-inicio")?.click(); } 
+        else { document.getElementById("btn-ir-ventas")?.click(); }
         return; 
-      } else {
-        localStorage.removeItem("usuario_id");
-      }
+      } else { localStorage.removeItem("usuario_id"); }
     } catch (error) { console.error("Error de sesión", error); }
   }
 
@@ -52,7 +47,7 @@ async function inicializarSistemaConLogin() {
         select.appendChild(option);
       });
     }
-  } catch (error) { console.error("Error cargando usuarios", error); }
+  } catch (error) {}
 
   modalLogin.show();
 
@@ -82,21 +77,15 @@ async function inicializarSistemaConLogin() {
         if (sidebar) sidebar.style.display = "block";
         
         aplicarPermisosInterfaz();
-        
-        if (esAdmin()) {
-            document.getElementById("btn-ir-inicio")?.click(); 
-        } else {
-            document.getElementById("btn-ir-ventas")?.click(); 
-        }
+        if (esAdmin()) document.getElementById("btn-ir-inicio")?.click(); 
+        else document.getElementById("btn-ir-ventas")?.click(); 
 
-        mostrarNotificacion({titulo: "Bienvenido", mensaje: `Hola, ${data.nombre}`, tipo: "success"});
+        mostrarNotificacion("Acceso Autorizado", `Bienvenido(a), ${data.nombre}`, "success");
       } else {
         mostrarErrorLogin("Contraseña incorrecta.");
         document.getElementById("login-password").value = "";
       }
-    } catch (error) {
-      mostrarErrorLogin("Error de red. Revisa tu servidor Node.");
-    }
+    } catch (error) { mostrarErrorLogin("Error de red. Revisa tu conexión a Azure."); }
   };
 }
 
@@ -127,15 +116,11 @@ async function hashPassword(password) {
   const encoder = new TextEncoder();
   const data = encoder.encode(password);
   const hashBuffer = await window.crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// AQUÍ ESTÁ EL CAMBIO PARA EL MODAL BONITO DE CERRAR SESIÓN
 window.abrirModalUsuarios = function() {
-  const modal = new bootstrap.Modal(document.getElementById("modalConfirmarLogout"));
-  modal.show();
+  new bootstrap.Modal(document.getElementById("modalConfirmarLogout")).show();
 };
 
 window.ejecutarLogout = function() {
@@ -146,8 +131,7 @@ window.ejecutarLogout = function() {
 window.abrirModalAgregarUsuario = function () {
   const form = document.getElementById("form-agregar-usuario");
   if (form) form.reset();
-  const modal = new bootstrap.Modal(document.getElementById("modalAgregarUsuario"));
-  modal.show();
+  new bootstrap.Modal(document.getElementById("modalAgregarUsuario")).show();
 };
 
 document.getElementById("form-agregar-usuario")?.addEventListener("submit", async function (e) {
@@ -156,34 +140,26 @@ document.getElementById("form-agregar-usuario")?.addEventListener("submit", asyn
   const cargo = document.getElementById("cargo-usuario").value.trim();
   const contrasea = document.getElementById("contrasea-usuario").value.trim();
 
-  if (!nombre || !cargo || !contrasea) return;
+  if (!nombre || !cargo || !contrasea) return mostrarNotificacion("Faltan datos", "Todos los campos son obligatorios.", "warning");
   const hash = await hashPassword(contrasea);
   
   try {
-    const respuesta = await fetch(`${API_URL_USUARIOS}/empleados`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, cargo, contraseña: hash })
-    });
-
-    if (!respuesta.ok) throw new Error("Error al crear");
-    mostrarNotificacion({titulo: "Usuario Creado", mensaje: "El usuario ha sido registrado.", tipo: "success"});
+    const respuesta = await fetch(`${API_URL_USUARIOS}/empleados`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre, cargo, contraseña: hash }) });
+    if (!respuesta.ok) throw new Error("Error");
+    mostrarNotificacion("Completado", "Nuevo usuario del sistema creado.", "success");
     bootstrap.Modal.getInstance(document.getElementById("modalAgregarUsuario")).hide();
     if (document.getElementById("seccion-usuarios").style.display === "block") cargarTablaUsuariosAdmin();
-  } catch (error) { mostrarNotificacion({titulo: "Error", mensaje: "No se pudo crear el usuario", tipo: "error"}); }
+  } catch (error) { mostrarNotificacion("Fallo", "El servidor denegó la creación.", "error"); }
 });
 
 window.abrirEditarUsuario = function(id) {
   const emp = listaEmpleadosAdmin.find(u => u.id === id);
   if(!emp) return;
-  
   document.getElementById("edit-id-usuario").value = emp.id;
   document.getElementById("edit-nombre-usuario").value = emp.nombre;
   document.getElementById("edit-cargo-usuario").value = emp.cargo || '';
   document.getElementById("edit-contrasea-usuario").value = ''; 
-  
-  const modal = new bootstrap.Modal(document.getElementById("modalEditarUsuario"));
-  modal.show();
+  new bootstrap.Modal(document.getElementById("modalEditarUsuario")).show();
 };
 
 document.getElementById("form-editar-usuario")?.addEventListener("submit", async function(e) {
@@ -193,55 +169,50 @@ document.getElementById("form-editar-usuario")?.addEventListener("submit", async
   const cargo = document.getElementById("edit-cargo-usuario").value.trim();
   const passRaw = document.getElementById("edit-contrasea-usuario").value.trim();
 
+  if (!nombre || !cargo) return mostrarNotificacion("Atención", "El nombre y rol son requeridos", "warning");
+
   const bodyData = { nombre, cargo };
   if (passRaw) bodyData.password = await hashPassword(passRaw);
 
   try {
-      const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyData)
-      });
-      if(!res.ok) throw new Error("Error al editar");
-      
-      mostrarNotificacion({titulo: "Actualizado", mensaje: "Datos del usuario guardados.", tipo: "success"});
+      const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyData) });
+      if(!res.ok) throw new Error();
+      mostrarNotificacion("Actualizado", "Modificaciones al usuario guardadas.", "success");
       bootstrap.Modal.getInstance(document.getElementById("modalEditarUsuario")).hide();
-      
       if (usuarioActual && usuarioActual.id == id) {
           usuarioActual.nombre = nombre;
           usuarioActual.cargo = cargo;
           actualizarHeaderUsuario(usuarioActual);
       }
       cargarTablaUsuariosAdmin();
-  } catch(error) {
-      mostrarNotificacion({titulo: "Error", mensaje: "No se pudo actualizar.", tipo: "error"});
-  }
+  } catch(error) { mostrarNotificacion("Error", "No se pudo actualizar.", "error"); }
 });
 
 window.eliminarUsuario = async function(id) {
-  if (usuarioActual.id === id) return alert("No puedes eliminar tu propio usuario mientras tienes la sesión iniciada.");
-  if (!confirm("⚠️ ¿Peligro: Estás seguro que quieres eliminar este usuario permanentemente?")) return;
-
-  try {
-    const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error("Error al eliminar");
-    mostrarNotificacion({titulo: "Usuario Eliminado", mensaje: "Se ha borrado el acceso al sistema.", tipo: "success"});
-    cargarTablaUsuariosAdmin();
-  } catch (error) { mostrarNotificacion({titulo: "Error", mensaje: "No se pudo eliminar el usuario.", tipo: "error"}); }
+  if (usuarioActual.id === id) return mostrarNotificacion("Error de Seguridad", "No puedes eliminar tu cuenta mientras esté activa.", "error");
+  
+  mostrarConfirmacion("⚠️ Vas a eliminar a este usuario permanentemente, ¿Estás seguro?", async () => {
+      try {
+        const res = await fetch(`${API_URL_USUARIOS}/empleados/${id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error();
+        mostrarNotificacion("Eliminado", "Se ha revocado el acceso.", "success");
+        cargarTablaUsuariosAdmin();
+      } catch (error) { mostrarNotificacion("Fallo", "El servidor no borró el usuario.", "error"); }
+  });
 };
 
 window.cargarTablaUsuariosAdmin = async function() {
   const tbody = document.querySelector("#usuarios-table-admin tbody");
   if (!tbody) return;
-  tbody.innerHTML = "<tr><td colspan='4' class='text-center'>Cargando usuarios...</td></tr>";
+  tbody.innerHTML = "<tr><td colspan='4' class='text-center'>Cargando...</td></tr>";
 
   try {
     const res = await fetch(`${API_URL_USUARIOS}/empleados`);
-    if (!res.ok) throw new Error("Error de red");
+    if (!res.ok) throw new Error();
     const empleados = await res.json();
     listaEmpleadosAdmin = empleados;
     renderizarTablaUsuarios(empleados);
-  } catch (error) { tbody.innerHTML = "<tr><td colspan='4' class='text-center text-danger'>Error al cargar los usuarios.</td></tr>"; }
+  } catch (error) { tbody.innerHTML = "<tr><td colspan='4' class='text-center text-danger'>Fallo de red.</td></tr>"; }
 };
 
 function renderizarTablaUsuarios(empleados) {
@@ -282,9 +253,8 @@ document.getElementById("busqueda-usuarios-tabla")?.addEventListener("input", fu
 
 window.iniciarRecuperacion = function() {
   const idUsuario = document.getElementById("login-usuario").value;
-  if (!idUsuario) return alert("Selecciona tu usuario primero.");
-  const modalRecup = new bootstrap.Modal(document.getElementById("modalRecuperarPass"));
-  modalRecup.show();
+  if (!idUsuario) return mostrarNotificacion("Pausa", "Selecciona tu nombre en la lista de arriba antes de recuperar.", "warning");
+  new bootstrap.Modal(document.getElementById("modalRecuperarPass")).show();
 };
 
 document.getElementById("form-recuperar-pass")?.addEventListener("submit", async function(e) {
@@ -294,23 +264,19 @@ document.getElementById("form-recuperar-pass")?.addEventListener("submit", async
   const nuevaClave = document.getElementById("recup-nueva-pass").value;
   const confirmarClave = document.getElementById("recup-confirmar-pass").value;
 
-  if (nuevaClave !== confirmarClave) return alert("❌ Las contraseñas no coinciden.");
-  if (pinMaestro !== "UNI-2026") return alert("❌ PIN Maestro incorrecto.");
+  if (nuevaClave !== confirmarClave) return mostrarNotificacion("Error", "Las nuevas contraseñas no son iguales.", "error");
+  if (pinMaestro !== "UNI-2026") return mostrarNotificacion("Bloqueado", "PIN Administrativo denegado.", "error");
 
   try {
     const hashNuevo = await hashPassword(nuevaClave);
-    const res = await fetch(`${API_URL_USUARIOS}/empleados/${idAdmin}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: hashNuevo, es_recuperacion: true })
-    });
+    const res = await fetch(`${API_URL_USUARIOS}/empleados/${idAdmin}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: hashNuevo, es_recuperacion: true }) });
 
     if (res.ok) {
-      alert("🎉 Éxito: La contraseña ha sido actualizada.");
+      mostrarNotificacion("Desbloqueado", "Tu nueva contraseña fue asignada.", "success");
       bootstrap.Modal.getInstance(document.getElementById("modalRecuperarPass")).hide();
       document.getElementById("form-recuperar-pass").reset();
-    } else alert("Error al actualizar en la base de datos.");
-  } catch (error) { alert("Error de conexión al intentar recuperar."); }
+    } else throw new Error();
+  } catch (error) { mostrarNotificacion("Error", "Hubo un fallo con el servidor de la base de datos.", "error"); }
 });
 
 function esAdmin() {

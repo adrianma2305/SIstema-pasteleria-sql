@@ -20,7 +20,7 @@ function renderizarGridVentas(productos) {
     const agotado = p.stock <= 0;
     const cardClass = agotado ? "bg-light text-muted border-danger" : "border-primary cursor-pointer";
     const opacity = agotado ? "opacity-50" : "";
-    const onClick = agotado ? `onclick="alert('¡Agotado! Debes hornear más ${p.nombre}.')"` : `onclick="agregarAlCarrito(${p.id})"`;
+    const onClick = agotado ? `onclick="mostrarNotificacion('¡Agotado!', 'La bandeja de ${p.nombre} está vacía. Deben hornear más.', 'error')"` : `onclick="agregarAlCarrito(${p.id})"`;
     const badgeStock = agotado ? `<span class="badge bg-danger">Agotado</span>` : `<span class="badge bg-success">${p.stock} en vitrina</span>`;
 
     grid.insertAdjacentHTML('beforeend', `
@@ -45,12 +45,12 @@ window.agregarAlCarrito = function(idProd) {
   
   if (itemExistente) {
     if (itemExistente.cantidad >= prod.stock) {
-      return alert(`¡Hey! Solo tienes ${prod.stock} unidades de ${prod.nombre} horneadas en la vitrina.`);
+      return mostrarNotificacion("Límite de Vitrina", `No puedes vender más de ${prod.stock} unidades de ${prod.nombre} porque es todo lo que hay físico.`, "warning");
     }
     itemExistente.cantidad++;
     itemExistente.subtotal = itemExistente.cantidad * itemExistente.precio_unitario;
   } else {
-    if (prod.stock < 1) return alert("Agotado");
+    if (prod.stock < 1) return mostrarNotificacion("Agotado", "Producto sin existencias", "error");
     carritoActual.push({ producto_id: prod.id, nombre: prod.nombre, cantidad: 1, precio_unitario: prod.precio, subtotal: prod.precio });
   }
   actualizarUIFactura();
@@ -129,7 +129,7 @@ document.getElementById("btn-guardar-venta").addEventListener("click", async () 
     if (!resVenta.ok) throw new Error("Error al guardar venta");
     const dataVenta = await resVenta.json();
 
-    alert("✅ Venta registrada con éxito.");
+    mostrarNotificacion("Venta Exitosa", `Ticket #${dataVenta.id} generado y stock descontado.`, "success");
     abrirRecibo(dataVenta.id, nombreCliente || "Consumidor Final", empleado_id, carritoActual, totalVenta);
 
     carritoActual = [];
@@ -138,7 +138,7 @@ document.getElementById("btn-guardar-venta").addEventListener("click", async () 
     actualizarUIFactura();
     cargarCatVentas(); 
 
-  } catch (error) { alert("Hubo un error de conexión al guardar la venta."); } 
+  } catch (error) { mostrarNotificacion("Error Crítico", "Hubo un error de conexión al guardar la venta.", "error"); } 
   finally { btnGuardar.disabled = false; btnGuardar.innerText = "Guardar venta"; }
 });
 
@@ -170,7 +170,7 @@ window.verDetalleVenta = async function(idVenta, cliente, fecha, empleado, total
     const res = await fetch(`${API_URL_VENTAS}/ventas/${idVenta}/detalles`);
     const detalles = await res.json();
     abrirRecibo(idVenta, cliente, empleado, detalles, total, fecha);
-  } catch (error) { alert("Error al cargar los detalles del ticket."); }
+  } catch (error) { mostrarNotificacion("Error", "Error al cargar los detalles del ticket.", "error"); }
 };
 
 function abrirRecibo(id, cliente, empleado, detalles, total, fechaStr = null) {
@@ -198,14 +198,13 @@ function abrirRecibo(id, cliente, empleado, detalles, total, fechaStr = null) {
   new bootstrap.Modal(document.getElementById("modalRecibo")).show();
 }
 
-// --- FASE 5: LA MAGIA DEL CORTE DE CAJA ---
 window.abrirCorteCaja = async function() {
     try {
         const res = await fetch(`${API_URL_VENTAS}/reportes/corte-caja`);
         
         if (!res.ok) {
             const errorDelServidor = await res.text();
-            throw new Error(errorDelServidor || "El servidor en Render no ha terminado de actualizarse. Espera 1 minuto.");
+            throw new Error(errorDelServidor || "El servidor en Render se está reiniciando.");
         }
 
         const data = await res.json();
@@ -227,7 +226,7 @@ window.abrirCorteCaja = async function() {
 
         new bootstrap.Modal(document.getElementById("modalCorteCaja")).show();
     } catch (error) {
-        alert("⚠️ DETALLE DEL ERROR:\n" + error.message);
+        mostrarNotificacion("Espera un momento", error.message, "warning");
     }
 };
 

@@ -1,3 +1,47 @@
+// --- FUNCIONES GLOBALES ELEGANTES PARA NOTIFICACIONES ---
+window.mostrarNotificacion = function(titulo, mensaje, tipo = 'info') {
+  const modalEl = document.getElementById("modalNotificacion");
+  if (!modalEl) return alert(titulo + ": " + mensaje); // Fallback por si acaso
+
+  const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  const icon = document.getElementById("notif-icon");
+  const titleEl = document.getElementById("notif-title");
+  const textEl = document.getElementById("notif-text");
+
+  titleEl.innerText = titulo;
+  textEl.innerText = mensaje;
+
+  if (tipo === 'success') {
+    icon.innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
+  } else if (tipo === 'error') {
+    icon.innerHTML = '<i class="bi bi-x-circle-fill text-danger"></i>';
+  } else if (tipo === 'warning') {
+    icon.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-warning"></i>';
+  } else {
+    icon.innerHTML = '<i class="bi bi-info-circle-fill text-primary"></i>';
+  }
+  modal.show();
+};
+
+window.mostrarConfirmacion = function(mensaje, callback) {
+  const modalEl = document.getElementById("modalConfirmacion");
+  if (!modalEl) { if(confirm(mensaje)) callback(); return; }
+
+  document.getElementById("confirm-text").innerText = mensaje;
+  const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+  
+  const btnConfirmar = document.getElementById("btn-confirmar-accion");
+  const newBtn = btnConfirmar.cloneNode(true);
+  btnConfirmar.parentNode.replaceChild(newBtn, newBtn);
+  
+  newBtn.addEventListener('click', () => {
+    modal.hide();
+    callback();
+  });
+  
+  modal.show();
+};
+
 document.addEventListener("DOMContentLoaded", () => {
   const botonesNav = {
     inicio: document.getElementById("btn-ir-inicio"),
@@ -27,9 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault(); ocultarTodasLasSecciones();
       if (secciones.inicio) secciones.inicio.style.display = "block";
       botonesNav.inicio.classList.add("active");
-      if (typeof refrescarTotales === 'function') await refrescarTotales();
-      if (typeof graficarSemana === 'function') graficarSemana();
-      if (typeof refrescarTopProductos === 'function') refrescarTopProductos();
+      if (typeof cargarDashboard === 'function') cargarDashboard();
     });
   }
 
@@ -38,8 +80,7 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault(); ocultarTodasLasSecciones();
       if (secciones.ventas) secciones.ventas.style.display = "block";
       botonesNav.ventas.classList.add("active");
-      if (typeof iniciarPOSVenta === 'function') iniciarPOSVenta();
-      if (typeof cargarVentas === 'function') cargarVentas(); 
+      if (typeof cargarCatVentas === 'function') cargarCatVentas(); 
     });
   }
 

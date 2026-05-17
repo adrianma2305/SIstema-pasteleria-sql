@@ -61,7 +61,7 @@ window.ejecutarAbono = async function(event) {
   const id = document.getElementById("abonar-id-prov").value;
   const monto = parseInt(document.getElementById("monto-abono").value, 10);
   
-  if(!id || isNaN(monto) || monto <= 0) return;
+  if(!id || isNaN(monto) || monto <= 0) return mostrarNotificacion("Inválido", "Ingresa un abono mayor a cero.", "warning");
 
   try {
     const res = await fetch(`${API_URL_PROV}/proveedores/${id}/abonar`, {
@@ -72,12 +72,10 @@ window.ejecutarAbono = async function(event) {
 
     if(!res.ok) throw new Error("Error procesando pago");
     
-    alert("💵 ¡Pago registrado exitosamente! La deuda del proveedor ha disminuido.");
+    mostrarNotificacion("Transacción Exitosa", "La deuda con el proveedor ha disminuido.", "success");
     bootstrap.Modal.getInstance(document.getElementById("modalAbonarProveedor")).hide();
     cargarProveedores();
-  } catch (error) {
-    alert("Error de conexión al registrar el abono.");
-  }
+  } catch (error) { mostrarNotificacion("Error", "Error de conexión al registrar el abono.", "error"); }
 };
 
 async function agregarProveedor(event) {
@@ -85,19 +83,27 @@ async function agregarProveedor(event) {
   const nombre = document.getElementById("nombre-proveedor").value.trim();
   const telefono = document.getElementById("telefono-proveedor").value.trim();
   const entrega = document.getElementById("entrega-proveedor").value;
-  if (!nombre) return alert("El nombre es obligatorio.");
+  
+  if (!nombre) return mostrarNotificacion("Atención", "El nombre es obligatorio.", "warning");
+  
   try {
     await fetch(`${API_URL_PROV}/proveedores`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre, telefono, entrega }) });
     bootstrap.Modal.getInstance(document.getElementById("modalAgregarProveedor")).hide();
     document.getElementById("form-agregar-proveedor").reset();
+    mostrarNotificacion("Registrado", "Proveedor guardado.", "success");
     cargarProveedores();
-  } catch (error) { alert("Error al guardar proveedor"); }
+  } catch (error) { mostrarNotificacion("Error", "Fallo al guardar", "error"); }
 }
 
-async function eliminarProveedor(id) {
-  if (!confirm("¿Estás seguro de que quieres eliminar a este proveedor?")) return;
-  try { await fetch(`${API_URL_PROV}/proveedores/${id}`, { method: 'DELETE' }); cargarProveedores(); } catch (error) { alert("Error al eliminar proveedor"); }
-}
+window.eliminarProveedor = function(id) {
+  mostrarConfirmacion("¿Deseas dar de baja a este proveedor?", async () => {
+    try { 
+        await fetch(`${API_URL_PROV}/proveedores/${id}`, { method: 'DELETE' }); 
+        mostrarNotificacion("Eliminado", "El proveedor se borró con éxito.", "success");
+        cargarProveedores(); 
+    } catch (error) { mostrarNotificacion("Error", "Fallo al borrar proveedor", "error"); }
+  });
+};
 
 async function abrirEditarProveedor(id) {
   try {
@@ -108,7 +114,7 @@ async function abrirEditarProveedor(id) {
     document.getElementById("edit-telefono-proveedor").value = proveedor.telefono || "";
     document.getElementById("edit-entrega-proveedor").value = proveedor.entrega ? proveedor.entrega.split('T')[0] : "";
     new bootstrap.Modal(document.getElementById("modalEditarProveedor")).show();
-  } catch (error) { alert("Error al cargar los datos del proveedor"); }
+  } catch (error) { mostrarNotificacion("Error", "No se cargaron los datos", "error"); }
 }
 
 async function actualizarProveedor(event) {
@@ -117,11 +123,13 @@ async function actualizarProveedor(event) {
   const nombre = document.getElementById("edit-nombre-proveedor").value.trim();
   const telefono = document.getElementById("edit-telefono-proveedor").value.trim();
   const entrega = document.getElementById("edit-entrega-proveedor").value;
+  
   try {
     await fetch(`${API_URL_PROV}/proveedores/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nombre, telefono, entrega }) });
     bootstrap.Modal.getInstance(document.getElementById("modalEditarProveedor")).hide();
+    mostrarNotificacion("Guardado", "Cambios aplicados", "success");
     cargarProveedores();
-  } catch (error) { alert("Error al actualizar proveedor"); }
+  } catch (error) { mostrarNotificacion("Error", "Fallo al actualizar", "error"); }
 }
 
 function filtrarProveedores() {
